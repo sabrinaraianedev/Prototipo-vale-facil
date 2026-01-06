@@ -1,16 +1,16 @@
-# 🚗 ValeFácil
+#ValeFácil
 
 Sistema web para **controle, distribuição e resgate de vales-brindes em postos de combustível**, garantindo **segurança, rastreabilidade e relatórios claros**, com foco em uma experiência **simples, moderna e intuitiva**.
 
 ---
 
-## 📌 Visão Geral
+## Visão Geral
 
 O **ValeFácil** gerencia todo o ciclo de vida dos vales-brindes, desde a criação até o resgate final, atendendo diferentes perfis de usuários e oferecendo dashboards com indicadores para apoio à tomada de decisão.
 
 ---
 
-## 🚀 Funcionalidades
+##Funcionalidades
 
 - Controle completo do ciclo de vales-brindes
 - Geração de vales com **QR Code único**
@@ -21,7 +21,7 @@ O **ValeFácil** gerencia todo o ciclo de vida dos vales-brindes, desde a criaç
 
 ---
 
-## 🧑‍💼 Perfis de Acesso
+##Perfis de Acesso
 
 ### 🔹 Admin
 - Dashboard administrativo
@@ -43,7 +43,7 @@ O **ValeFácil** gerencia todo o ciclo de vida dos vales-brindes, desde a criaç
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+##Tecnologias Utilizadas
 
 - **React**
 - **TypeScript**
@@ -54,7 +54,7 @@ O **ValeFácil** gerencia todo o ciclo de vida dos vales-brindes, desde a criaç
 
 ---
 
-## 📦 Instalação e Execução
+##Instalação e Execução
 
 ### Pré-requisitos
 - Node.js (recomendado via `nvm`)
