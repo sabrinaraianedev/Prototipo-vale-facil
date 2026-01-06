@@ -1,4 +1,4 @@
-#ValeFácil
+# ValeFácil
 
 Sistema web para **controle, distribuição e resgate de vales-brindes em postos de combustível**, garantindo **segurança, rastreabilidade e relatórios claros**, com foco em uma experiência **simples, moderna e intuitiva**.
 
@@ -10,7 +10,7 @@ O **ValeFácil** gerencia todo o ciclo de vida dos vales-brindes, desde a criaç
 
 ---
 
-##Funcionalidades
+## Funcionalidades
 
 - Controle completo do ciclo de vales-brindes
 - Geração de vales com **QR Code único**
@@ -21,7 +21,7 @@ O **ValeFácil** gerencia todo o ciclo de vida dos vales-brindes, desde a criaç
 
 ---
 
-##Perfis de Acesso
+## Perfis de Acesso
 
 ### 🔹 Admin
 - Dashboard administrativo
@@ -43,7 +43,7 @@ O **ValeFácil** gerencia todo o ciclo de vida dos vales-brindes, desde a criaç
 
 ---
 
-##Tecnologias Utilizadas
+## Tecnologias Utilizadas
 
 - **React**
 - **TypeScript**
@@ -54,13 +54,17 @@ O **ValeFácil** gerencia todo o ciclo de vida dos vales-brindes, desde a criaç
 
 ---
 
-##Instalação e Execução
+## Instalação e Execução
 
 ### Pré-requisitos
 - Node.js (recomendado via `nvm`)
 - npm ou yarn
 
 ### Passo a passo
+
+Clone o repositório:
+```bash
+git clone https://github.com/seu-usuario/valefacil.git
 
 Clone o repositório:
 ```bash
