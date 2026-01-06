@@ -64,7 +64,7 @@ O **ValeFácil** gerencia todo o ciclo de vida dos vales-brindes, desde a criaç
 
 Clone o repositório:
 ```bash
-git clone https://github.com/seu-usuario/valefacil.git
+git clone https://github.com/sabrinaraianedev/Prototipo-vale-facil.git
 
 Clone o repositório:
 ```bash
