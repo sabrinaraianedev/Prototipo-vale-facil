@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVouchers, Voucher } from '@/contexts/VoucherContext';
 import { DashboardLayout } from '@/components/Layout/DashboardLayout';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { QrCode, Search, CheckCircle, XCircle, AlertTriangle, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { QRScanner } from '@/components/Scanner/QRScanner';
 
 export default function RedeemVoucher() {
   const { user } = useAuth();
@@ -18,6 +19,7 @@ export default function RedeemVoucher() {
   const [searchError, setSearchError] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   const handleSearch = () => {
     setSearchError('');
@@ -76,8 +78,28 @@ export default function RedeemVoucher() {
       timeStyle: 'short' 
     }).format(date);
 
+  const handleScan = (scannedCode: string) => {
+    setShowScanner(false);
+    setCode(scannedCode.toUpperCase());
+    
+    const voucher = getVoucherByCode(scannedCode.toUpperCase());
+    if (voucher) {
+      setSearchedVoucher(voucher);
+      setSearchError('');
+    } else {
+      setSearchError('Vale não encontrado');
+    }
+  };
+
   return (
     <DashboardLayout>
+      {showScanner && (
+        <QRScanner 
+          onScan={handleScan} 
+          onClose={() => setShowScanner(false)} 
+        />
+      )}
+      
       <div className="max-w-2xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -117,10 +139,13 @@ export default function RedeemVoucher() {
               <div className="flex-1 h-px bg-border" />
             </div>
 
-            <Button variant="outline" className="w-full h-12" disabled>
+            <Button 
+              variant="outline" 
+              className="w-full h-12" 
+              onClick={() => setShowScanner(true)}
+            >
               <Camera className="h-5 w-5" />
               Escanear QR Code
-              <span className="text-xs text-muted-foreground ml-2">(Em breve)</span>
             </Button>
           </div>
         </div>

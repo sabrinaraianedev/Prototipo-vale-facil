@@ -75,88 +75,85 @@ export function AdminDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         <StatCard
-          title="Vales Distribuídos"
+          title="Vales"
           value={totalDistributed}
-          icon={<Ticket className="h-6 w-6 text-primary-foreground" />}
-          trend={{ value: 12, isPositive: true }}
+          icon={<Ticket className="h-5 w-5 text-primary-foreground" />}
         />
         <StatCard
-          title="Valor Distribuído"
+          title="Distribuído"
           value={formatCurrency(totalValue)}
-          icon={<DollarSign className="h-6 w-6 text-primary-foreground" />}
-          trend={{ value: 8, isPositive: true }}
+          icon={<DollarSign className="h-5 w-5 text-primary-foreground" />}
         />
         <StatCard
-          title="Valor Resgatado"
+          title="Resgatado"
           value={formatCurrency(totalRedeemed)}
-          icon={<CheckCircle className="h-6 w-6 text-primary-foreground" />}
-          trend={{ value: 5, isPositive: true }}
+          icon={<CheckCircle className="h-5 w-5 text-primary-foreground" />}
         />
         <StatCard
-          title="Taxa de Resgate"
+          title="Taxa"
           value={`${totalDistributed > 0 ? Math.round((usedVouchers.length / totalDistributed) * 100) : 0}%`}
-          icon={<Users className="h-6 w-6 text-primary-foreground" />}
+          icon={<Users className="h-5 w-5 text-primary-foreground" />}
         />
       </div>
 
       {/* Vouchers by Cashier */}
-      <div className="card-elevated p-6">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Distribuição por Caixa</h2>
-        <div className="space-y-4">
+      <div className="card-elevated p-4 lg:p-6">
+        <h2 className="text-base lg:text-lg font-semibold text-foreground mb-3">Por Caixa</h2>
+        <div className="space-y-2">
           {Object.entries(byCashier).length > 0 ? (
             Object.entries(byCashier).map(([name, data]) => (
-              <div key={name} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center">
-                    <span className="text-sm font-semibold text-primary-foreground">
+              <div key={name} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center shrink-0">
+                    <span className="text-xs font-semibold text-primary-foreground">
                       {name.charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <div>
-                    <p className="font-medium text-foreground">{name}</p>
-                    <p className="text-sm text-muted-foreground">{data.count} vales distribuídos</p>
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground text-sm truncate">{name}</p>
+                    <p className="text-xs text-muted-foreground">{data.count} vales</p>
                   </div>
                 </div>
-                <p className="text-lg font-semibold text-primary">{formatCurrency(data.value)}</p>
+                <p className="text-sm font-semibold text-primary whitespace-nowrap ml-2">{formatCurrency(data.value)}</p>
               </div>
             ))
           ) : (
-            <p className="text-muted-foreground text-center py-8">Nenhum vale distribuído no período selecionado</p>
+            <p className="text-muted-foreground text-center py-4 text-sm">Nenhum vale no período</p>
           )}
         </div>
       </div>
 
       {/* Recent Vouchers Table */}
-      <div className="card-elevated p-6">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Últimos Vales Gerados</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+      <div className="card-elevated p-4 lg:p-6">
+        <h2 className="text-base lg:text-lg font-semibold text-foreground mb-3">Últimos Vales</h2>
+        <div className="overflow-x-auto -mx-4 lg:mx-0">
+          <table className="w-full min-w-[500px]">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Código</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Valor</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Motorista</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Estabelecimento</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Código</th>
+                <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Valor</th>
+                <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground hidden sm:table-cell">Motorista</th>
+                <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Local</th>
+                <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Status</th>
               </tr>
             </thead>
             <tbody>
               {filteredVouchers.slice(0, 5).map((voucher) => (
                 <tr key={voucher.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                  <td className="py-3 px-4 font-mono text-sm">{voucher.code}</td>
-                  <td className="py-3 px-4 font-medium">{formatCurrency(voucher.value)}</td>
-                  <td className="py-3 px-4">{voucher.driverName}</td>
-                  <td className="py-3 px-4">{voucher.establishment}</td>
-                  <td className="py-3 px-4">
+                  <td className="py-2 px-3 font-mono text-xs">{voucher.code}</td>
+                  <td className="py-2 px-3 font-medium text-sm">{formatCurrency(voucher.value)}</td>
+                  <td className="py-2 px-3 text-sm hidden sm:table-cell truncate max-w-[120px]">{voucher.driverName}</td>
+                  <td className="py-2 px-3 text-sm">{voucher.establishment}</td>
+                  <td className="py-2 px-3">
                     <span className={cn(
-                      "px-2 py-1 rounded-full text-xs font-medium",
+                      "px-2 py-0.5 rounded-full text-xs font-medium",
                       voucher.status === 'gerado' && "bg-warning/20 text-warning",
                       voucher.status === 'utilizado' && "bg-success/20 text-success",
                       voucher.status === 'cancelado' && "bg-destructive/20 text-destructive"
                     )}>
-                      {voucher.status.charAt(0).toUpperCase() + voucher.status.slice(1)}
+                      {voucher.status === 'gerado' ? 'Gerado' : voucher.status === 'utilizado' ? 'Usado' : 'Cancelado'}
                     </span>
                   </td>
                 </tr>
@@ -164,7 +161,7 @@ export function AdminDashboard() {
             </tbody>
           </table>
           {filteredVouchers.length === 0 && (
-            <p className="text-muted-foreground text-center py-8">Nenhum vale encontrado</p>
+            <p className="text-muted-foreground text-center py-4 text-sm">Nenhum vale encontrado</p>
           )}
         </div>
       </div>
