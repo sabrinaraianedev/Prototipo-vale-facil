@@ -5,28 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Users as UsersIcon, Plus, MoreVertical, Shield, Store, CreditCard } from 'lucide-react';
+import { Users as UsersIcon, Plus, Shield, Store, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { UserRole } from '@/contexts/AuthContext';
-
-interface SystemUser {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  active: boolean;
-  createdAt: Date;
-}
-
-const initialUsers: SystemUser[] = [
-  { id: '1', name: 'Administrador', email: 'admin@gmail.com', role: 'admin', active: true, createdAt: new Date() },
-  { id: '2', name: 'Caixa Principal', email: 'caixa@gmail.com', role: 'caixa', active: true, createdAt: new Date() },
-  { id: '3', name: 'Conveniência Central', email: 'estabelecimento@gmail.com', role: 'estabelecimento', active: true, createdAt: new Date() },
-];
+import { UserRole, useAuth } from '@/contexts/AuthContext';
 
 export default function Users() {
-  const [users, setUsers] = useState<SystemUser[]>(initialUsers);
+  const { users, addUser, toggleUserStatus } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -43,25 +28,27 @@ export default function Users() {
       return;
     }
 
-    const newUser: SystemUser = {
-      id: Date.now().toString(),
+    // Check if email already exists
+    if (users.some(u => u.email === formData.email)) {
+      toast.error('Este e-mail já está cadastrado');
+      return;
+    }
+
+    addUser({
       name: formData.name,
       email: formData.email,
+      password: formData.password,
       role: formData.role as UserRole,
       active: true,
-      createdAt: new Date(),
-    };
+    });
 
-    setUsers(prev => [...prev, newUser]);
     setFormData({ name: '', email: '', password: '', role: '' });
     setIsDialogOpen(false);
     toast.success('Usuário criado com sucesso!');
   };
 
-  const toggleUserStatus = (userId: string) => {
-    setUsers(prev => prev.map(user => 
-      user.id === userId ? { ...user, active: !user.active } : user
-    ));
+  const handleToggleStatus = (userId: string) => {
+    toggleUserStatus(userId);
     toast.success('Status do usuário atualizado');
   };
 
@@ -231,7 +218,7 @@ export default function Users() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => toggleUserStatus(user.id)}
+                          onClick={() => handleToggleStatus(user.id)}
                         >
                           {user.active ? 'Desativar' : 'Ativar'}
                         </Button>
