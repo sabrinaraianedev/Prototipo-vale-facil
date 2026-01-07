@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { QrCode, Ticket, CheckCircle, Copy, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import QRCode from 'react-qr-code';
+import jsPDF from 'jspdf';
 
 export default function GenerateVoucher() {
   const { user } = useAuth();
@@ -68,22 +69,43 @@ export default function GenerateVoucher() {
 
   const downloadQR = () => {
     const svg = document.getElementById('voucher-qr');
-    if (svg) {
+    if (svg && generatedVoucher) {
       const svgData = new XMLSerializer().serializeToString(svg);
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
       img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx?.drawImage(img, 0, 0);
-        const pngFile = canvas.toDataURL('image/png');
-        const downloadLink = document.createElement('a');
-        downloadLink.download = `vale-${generatedVoucher?.code}.png`;
-        downloadLink.href = pngFile;
-        downloadLink.click();
+        canvas.width = 200;
+        canvas.height = 200;
+        ctx?.drawImage(img, 0, 0, 200, 200);
+        const pngData = canvas.toDataURL('image/png');
+        
+        // Criar PDF
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+        
+        // Título
+        pdf.setFontSize(20);
+        pdf.text('Vale-Brinde', 105, 30, { align: 'center' });
+        
+        // QR Code
+        pdf.addImage(pngData, 'PNG', 65, 50, 80, 80);
+        
+        // Código
+        pdf.setFontSize(16);
+        pdf.text(generatedVoucher.code, 105, 145, { align: 'center' });
+        
+        // Valor
+        pdf.setFontSize(14);
+        pdf.text(`Valor: ${formatCurrency(generatedVoucher.value)}`, 105, 160, { align: 'center' });
+        
+        // Download
+        pdf.save(`vale-${generatedVoucher.code}.pdf`);
       };
-      img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+      img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
     }
   };
 
@@ -125,23 +147,27 @@ export default function GenerateVoucher() {
                 <div className="space-y-2">
                   <Label>Tipo de Vale</Label>
                   <Select
-                    value={formData.type}
+                    value={formData.type ? `${formData.type}-${formData.value}` : ''}
                     onValueChange={(value) => {
-                      const selected = activeTypes.find(t => t.type === value);
-                      setFormData({ 
-                        ...formData, 
-                        type: value as VoucherType,
-                        value: selected ? selected.value.toString() : ''
-                      });
+                      const selected = activeTypes.find(t => `${t.type}-${t.value}` === value);
+                      if (selected) {
+                        setFormData({ 
+                          ...formData, 
+                          type: selected.type,
+                          value: selected.value.toString()
+                        });
+                      }
                     }}
                   >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="Selecione o tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="combustivel">Combustível</SelectItem>
-                      <SelectItem value="conveniencia">Conveniência</SelectItem>
-                      <SelectItem value="churrascaria">Churrascaria</SelectItem>
+                      {activeTypes.map((voucherType) => (
+                        <SelectItem key={voucherType.id} value={`${voucherType.type}-${voucherType.value}`}>
+                          {voucherType.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
