@@ -9,32 +9,32 @@ export interface User {
   role: UserRole;
 }
 
+export interface SystemUser {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  active: boolean;
+  createdAt: Date;
+}
+
 interface AuthContextType {
   user: User | null;
+  users: SystemUser[];
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isAuthenticated: boolean;
+  addUser: (user: Omit<SystemUser, 'id' | 'createdAt'>) => void;
+  toggleUserStatus: (id: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock users for demonstration
-const mockUsers: { email: string; password: string; user: User }[] = [
-  {
-    email: 'admin@gmail.com',
-    password: 'admin',
-    user: { id: '1', email: 'admin@gmail.com', name: 'Administrador', role: 'admin' }
-  },
-  {
-    email: 'caixa@gmail.com',
-    password: 'caixa',
-    user: { id: '2', email: 'caixa@gmail.com', name: 'Caixa Principal', role: 'caixa' }
-  },
-  {
-    email: 'estabelecimento@gmail.com',
-    password: 'estabelecimento',
-    user: { id: '3', email: 'estabelecimento@gmail.com', name: 'Conveniência Central', role: 'estabelecimento' }
-  }
+const initialUsers: SystemUser[] = [
+  { id: '1', name: 'Administrador', email: 'admin@gmail.com', password: 'admin', role: 'admin', active: true, createdAt: new Date() },
+  { id: '2', name: 'Caixa Principal', email: 'caixa@gmail.com', password: 'caixa', role: 'caixa', active: true, createdAt: new Date() },
+  { id: '3', name: 'Conveniência Central', email: 'estabelecimento@gmail.com', password: 'estabelecimento', role: 'estabelecimento', active: true, createdAt: new Date() },
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -42,16 +42,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem('valefacil_user');
     return saved ? JSON.parse(saved) : null;
   });
+  const [users, setUsers] = useState<SystemUser[]>(initialUsers);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
     
-    const found = mockUsers.find(u => u.email === email && u.password === password);
+    const found = users.find(u => u.email === email && u.password === password && u.active);
     
     if (found) {
-      setUser(found.user);
-      localStorage.setItem('valefacil_user', JSON.stringify(found.user));
+      const loggedUser: User = {
+        id: found.id,
+        email: found.email,
+        name: found.name,
+        role: found.role,
+      };
+      setUser(loggedUser);
+      localStorage.setItem('valefacil_user', JSON.stringify(loggedUser));
       return { success: true };
     }
     
@@ -63,8 +69,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('valefacil_user');
   };
 
+  const addUser = (userData: Omit<SystemUser, 'id' | 'createdAt'>) => {
+    const newUser: SystemUser = {
+      ...userData,
+      id: Date.now().toString(),
+      createdAt: new Date(),
+    };
+    setUsers(prev => [...prev, newUser]);
+  };
+
+  const toggleUserStatus = (id: string) => {
+    setUsers(prev => prev.map(user => 
+      user.id === id ? { ...user, active: !user.active } : user
+    ));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      users,
+      login, 
+      logout, 
+      isAuthenticated: !!user,
+      addUser,
+      toggleUserStatus,
+    }}>
       {children}
     </AuthContext.Provider>
   );
