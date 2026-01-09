@@ -5,7 +5,17 @@ import { CashierDashboard } from '@/components/Dashboard/CashierDashboard';
 import { EstablishmentDashboard } from '@/components/Dashboard/EstablishmentDashboard';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!user) return null;
 
