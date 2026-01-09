@@ -1,182 +1,393 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './AuthContext';
 
 export type VoucherStatus = 'gerado' | 'utilizado' | 'cancelado';
-export type VoucherType = 'combustivel' | 'conveniencia' | 'churrascaria';
 
 export interface Voucher {
   id: string;
   code: string;
   value: number;
-  type: VoucherType;
+  voucherTypeId: string | null;
   vehiclePlate: string;
   driverName: string;
-  establishment: string;
+  liters: number;
+  establishmentId: string;
+  establishmentName: string;
   cashierId: string;
   cashierName: string;
   status: VoucherStatus;
   createdAt: Date;
-  usedAt?: Date;
-  usedBy?: string;
+  redeemedAt?: Date;
+  redeemedBy?: string;
 }
 
 export interface VoucherTypeConfig {
   id: string;
   name: string;
   value: number;
-  type: VoucherType;
+  minLiters: number;
+  active: boolean;
+}
+
+export interface Establishment {
+  id: string;
+  name: string;
   active: boolean;
 }
 
 interface VoucherContextType {
   vouchers: Voucher[];
   voucherTypes: VoucherTypeConfig[];
-  createVoucher: (voucher: Omit<Voucher, 'id' | 'code' | 'status' | 'createdAt'>) => Voucher;
-  redeemVoucher: (code: string, establishmentId: string) => { success: boolean; error?: string; voucher?: Voucher };
-  getVoucherByCode: (code: string) => Voucher | undefined;
-  getVouchersByCashier: (cashierId: string) => Voucher[];
-  getVouchersByEstablishment: (establishment: string) => Voucher[];
-  addVoucherType: (config: Omit<VoucherTypeConfig, 'id'>) => void;
-  updateVoucherType: (id: string, config: Partial<VoucherTypeConfig>) => void;
+  establishments: Establishment[];
+  loading: boolean;
+  createVoucher: (voucher: {
+    value: number;
+    voucherTypeId: string;
+    vehiclePlate: string;
+    driverName: string;
+    liters: number;
+    establishmentId: string;
+  }) => Promise<Voucher | null>;
+  redeemVoucher: (code: string) => Promise<{ success: boolean; error?: string; voucher?: Voucher }>;
+  getVoucherByCode: (code: string) => Promise<Voucher | null>;
+  addVoucherType: (config: Omit<VoucherTypeConfig, 'id'>) => Promise<void>;
+  updateVoucherType: (id: string, config: Partial<VoucherTypeConfig>) => Promise<void>;
+  getEligibleVoucherType: (liters: number) => VoucherTypeConfig | null;
+  refreshData: () => Promise<void>;
 }
 
 const VoucherContext = createContext<VoucherContextType | undefined>(undefined);
 
-// Generate a unique code
-const generateCode = () => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = 'VF-';
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-};
-
-// Mock initial vouchers
-const initialVouchers: Voucher[] = [
-  {
-    id: '1',
-    code: 'VF-ABC12345',
-    value: 50,
-    type: 'conveniencia',
-    vehiclePlate: 'ABC-1234',
-    driverName: 'João Silva',
-    establishment: 'Conveniência',
-    cashierId: '2',
-    cashierName: 'Caixa Principal',
-    status: 'utilizado',
-    createdAt: new Date(Date.now() - 86400000 * 2),
-    usedAt: new Date(Date.now() - 86400000),
-    usedBy: 'Conveniência Central'
-  },
-  {
-    id: '2',
-    code: 'VF-DEF67890',
-    value: 100,
-    type: 'combustivel',
-    vehiclePlate: 'XYZ-5678',
-    driverName: 'Maria Santos',
-    establishment: 'Posto',
-    cashierId: '2',
-    cashierName: 'Caixa Principal',
-    status: 'gerado',
-    createdAt: new Date(Date.now() - 86400000),
-  },
-  {
-    id: '3',
-    code: 'VF-GHI11223',
-    value: 75,
-    type: 'churrascaria',
-    vehiclePlate: 'QWE-9012',
-    driverName: 'Pedro Oliveira',
-    establishment: 'Churrascaria',
-    cashierId: '2',
-    cashierName: 'Caixa Principal',
-    status: 'gerado',
-    createdAt: new Date(),
-  },
-];
-
-const initialVoucherTypes: VoucherTypeConfig[] = [
-  { id: '1', name: 'Vale Combustível R$50', value: 50, type: 'combustivel', active: true },
-  { id: '2', name: 'Vale Combustível R$100', value: 100, type: 'combustivel', active: true },
-  { id: '3', name: 'Vale Conveniência R$25', value: 25, type: 'conveniencia', active: true },
-  { id: '4', name: 'Vale Conveniência R$50', value: 50, type: 'conveniencia', active: true },
-  { id: '5', name: 'Vale Churrascaria R$75', value: 75, type: 'churrascaria', active: true },
-];
-
 export function VoucherProvider({ children }: { children: ReactNode }) {
-  const [vouchers, setVouchers] = useState<Voucher[]>(initialVouchers);
-  const [voucherTypes, setVoucherTypes] = useState<VoucherTypeConfig[]>(initialVoucherTypes);
+  const { user, isAuthenticated } = useAuth();
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [voucherTypes, setVoucherTypes] = useState<VoucherTypeConfig[]>([]);
+  const [establishments, setEstablishments] = useState<Establishment[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const createVoucher = (voucherData: Omit<Voucher, 'id' | 'code' | 'status' | 'createdAt'>): Voucher => {
-    const newVoucher: Voucher = {
-      ...voucherData,
-      id: Date.now().toString(),
-      code: generateCode(),
-      status: 'gerado',
-      createdAt: new Date(),
-    };
-    setVouchers(prev => [newVoucher, ...prev]);
-    return newVoucher;
-  };
-
-  const redeemVoucher = (code: string, establishmentId: string): { success: boolean; error?: string; voucher?: Voucher } => {
-    const voucher = vouchers.find(v => v.code === code);
-    
-    if (!voucher) {
-      return { success: false, error: 'Vale não encontrado' };
-    }
-    
-    if (voucher.status === 'utilizado') {
-      return { success: false, error: 'Este vale já foi utilizado' };
-    }
-    
-    if (voucher.status === 'cancelado') {
-      return { success: false, error: 'Este vale foi cancelado' };
+  const fetchData = async () => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
     }
 
-    const updatedVoucher: Voucher = {
-      ...voucher,
-      status: 'utilizado',
-      usedAt: new Date(),
-      usedBy: establishmentId,
-    };
+    try {
+      // Fetch voucher types
+      const { data: typesData } = await supabase
+        .from('voucher_types')
+        .select('*')
+        .order('min_liters', { ascending: true });
 
-    setVouchers(prev => prev.map(v => v.id === voucher.id ? updatedVoucher : v));
+      if (typesData) {
+        setVoucherTypes(typesData.map(t => ({
+          id: t.id,
+          name: t.name,
+          value: Number(t.value),
+          minLiters: Number(t.min_liters),
+          active: t.active,
+        })));
+      }
+
+      // Fetch establishments
+      const { data: estData } = await supabase
+        .from('establishments')
+        .select('*')
+        .eq('active', true);
+
+      if (estData) {
+        setEstablishments(estData.map(e => ({
+          id: e.id,
+          name: e.name,
+          active: e.active,
+        })));
+      }
+
+      // Fetch vouchers with related data
+      const { data: vouchersData } = await supabase
+        .from('vouchers')
+        .select(`
+          *,
+          establishments:establishment_id(name),
+          profiles:cashier_id(name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (vouchersData) {
+        setVouchers(vouchersData.map(v => ({
+          id: v.id,
+          code: v.code,
+          value: Number(v.value),
+          voucherTypeId: v.voucher_type_id,
+          vehiclePlate: v.vehicle_plate,
+          driverName: v.driver_name,
+          liters: Number(v.liters),
+          establishmentId: v.establishment_id,
+          establishmentName: (v.establishments as any)?.name || '',
+          cashierId: v.cashier_id,
+          cashierName: (v.profiles as any)?.name || '',
+          status: v.status as VoucherStatus,
+          createdAt: new Date(v.created_at),
+          redeemedAt: v.redeemed_at ? new Date(v.redeemed_at) : undefined,
+          redeemedBy: v.redeemed_by || undefined,
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [isAuthenticated]);
+
+  const refreshData = async () => {
+    await fetchData();
+  };
+
+  const getEligibleVoucherType = (liters: number): VoucherTypeConfig | null => {
+    const activeTypes = voucherTypes.filter(t => t.active);
+    // Find the highest tier the user qualifies for
+    const eligible = activeTypes
+      .filter(t => liters >= t.minLiters)
+      .sort((a, b) => b.minLiters - a.minLiters);
     
-    return { success: true, voucher: updatedVoucher };
+    return eligible[0] || null;
   };
 
-  const getVoucherByCode = (code: string) => vouchers.find(v => v.code === code);
+  const createVoucher = async (voucherData: {
+    value: number;
+    voucherTypeId: string;
+    vehiclePlate: string;
+    driverName: string;
+    liters: number;
+    establishmentId: string;
+  }): Promise<Voucher | null> => {
+    if (!user) return null;
 
-  const getVouchersByCashier = (cashierId: string) => vouchers.filter(v => v.cashierId === cashierId);
+    try {
+      // Generate unique code
+      const { data: codeData } = await supabase.rpc('generate_voucher_code');
+      const code = `VF-${codeData || Math.random().toString(36).substring(2, 10).toUpperCase()}`;
 
-  const getVouchersByEstablishment = (establishment: string) => 
-    vouchers.filter(v => v.establishment.toLowerCase() === establishment.toLowerCase() || v.usedBy?.toLowerCase() === establishment.toLowerCase());
+      const { data, error } = await supabase
+        .from('vouchers')
+        .insert({
+          code,
+          value: voucherData.value,
+          voucher_type_id: voucherData.voucherTypeId,
+          vehicle_plate: voucherData.vehiclePlate,
+          driver_name: voucherData.driverName,
+          liters: voucherData.liters,
+          establishment_id: voucherData.establishmentId,
+          cashier_id: user.id,
+          status: 'gerado',
+        })
+        .select(`
+          *,
+          establishments:establishment_id(name),
+          profiles:cashier_id(name)
+        `)
+        .single();
 
-  const addVoucherType = (config: Omit<VoucherTypeConfig, 'id'>) => {
-    const newType: VoucherTypeConfig = {
-      ...config,
-      id: Date.now().toString(),
-    };
-    setVoucherTypes(prev => [...prev, newType]);
+      if (error) throw error;
+
+      const newVoucher: Voucher = {
+        id: data.id,
+        code: data.code,
+        value: Number(data.value),
+        voucherTypeId: data.voucher_type_id,
+        vehiclePlate: data.vehicle_plate,
+        driverName: data.driver_name,
+        liters: Number(data.liters),
+        establishmentId: data.establishment_id,
+        establishmentName: (data.establishments as any)?.name || '',
+        cashierId: data.cashier_id,
+        cashierName: (data.profiles as any)?.name || user.name,
+        status: 'gerado',
+        createdAt: new Date(data.created_at),
+      };
+
+      setVouchers(prev => [newVoucher, ...prev]);
+      return newVoucher;
+    } catch (error) {
+      console.error('Error creating voucher:', error);
+      return null;
+    }
   };
 
-  const updateVoucherType = (id: string, config: Partial<VoucherTypeConfig>) => {
-    setVoucherTypes(prev => prev.map(t => t.id === id ? { ...t, ...config } : t));
+  const redeemVoucher = async (code: string): Promise<{ success: boolean; error?: string; voucher?: Voucher }> => {
+    if (!user) return { success: false, error: 'Usuário não autenticado' };
+
+    try {
+      // Find voucher by code
+      const { data: voucherData, error: findError } = await supabase
+        .from('vouchers')
+        .select('*')
+        .eq('code', code.toUpperCase())
+        .single();
+
+      if (findError || !voucherData) {
+        return { success: false, error: 'Vale não encontrado' };
+      }
+
+      if (voucherData.status === 'utilizado') {
+        return { success: false, error: 'Este vale já foi utilizado' };
+      }
+
+      if (voucherData.status === 'cancelado') {
+        return { success: false, error: 'Este vale foi cancelado' };
+      }
+
+      // Update voucher
+      const { data: updatedData, error: updateError } = await supabase
+        .from('vouchers')
+        .update({
+          status: 'utilizado',
+          redeemed_at: new Date().toISOString(),
+          redeemed_by: user.id,
+        })
+        .eq('id', voucherData.id)
+        .select(`
+          *,
+          establishments:establishment_id(name),
+          profiles:cashier_id(name)
+        `)
+        .single();
+
+      if (updateError) throw updateError;
+
+      const updatedVoucher: Voucher = {
+        id: updatedData.id,
+        code: updatedData.code,
+        value: Number(updatedData.value),
+        voucherTypeId: updatedData.voucher_type_id,
+        vehiclePlate: updatedData.vehicle_plate,
+        driverName: updatedData.driver_name,
+        liters: Number(updatedData.liters),
+        establishmentId: updatedData.establishment_id,
+        establishmentName: (updatedData.establishments as any)?.name || '',
+        cashierId: updatedData.cashier_id,
+        cashierName: (updatedData.profiles as any)?.name || '',
+        status: 'utilizado',
+        createdAt: new Date(updatedData.created_at),
+        redeemedAt: new Date(updatedData.redeemed_at),
+        redeemedBy: updatedData.redeemed_by,
+      };
+
+      setVouchers(prev => prev.map(v => v.id === updatedVoucher.id ? updatedVoucher : v));
+      
+      return { success: true, voucher: updatedVoucher };
+    } catch (error: any) {
+      console.error('Error redeeming voucher:', error);
+      return { success: false, error: error.message || 'Erro ao resgatar vale' };
+    }
+  };
+
+  const getVoucherByCode = async (code: string): Promise<Voucher | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('vouchers')
+        .select(`
+          *,
+          establishments:establishment_id(name),
+          profiles:cashier_id(name)
+        `)
+        .eq('code', code.toUpperCase())
+        .single();
+
+      if (error || !data) return null;
+
+      return {
+        id: data.id,
+        code: data.code,
+        value: Number(data.value),
+        voucherTypeId: data.voucher_type_id,
+        vehiclePlate: data.vehicle_plate,
+        driverName: data.driver_name,
+        liters: Number(data.liters),
+        establishmentId: data.establishment_id,
+        establishmentName: (data.establishments as any)?.name || '',
+        cashierId: data.cashier_id,
+        cashierName: (data.profiles as any)?.name || '',
+        status: data.status as VoucherStatus,
+        createdAt: new Date(data.created_at),
+        redeemedAt: data.redeemed_at ? new Date(data.redeemed_at) : undefined,
+        redeemedBy: data.redeemed_by || undefined,
+      };
+    } catch (error) {
+      console.error('Error fetching voucher:', error);
+      return null;
+    }
+  };
+
+  const addVoucherType = async (config: Omit<VoucherTypeConfig, 'id'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('voucher_types')
+        .insert({
+          name: config.name,
+          value: config.value,
+          min_liters: config.minLiters,
+          active: config.active,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setVoucherTypes(prev => [...prev, {
+        id: data.id,
+        name: data.name,
+        value: Number(data.value),
+        minLiters: Number(data.min_liters),
+        active: data.active,
+      }]);
+    } catch (error) {
+      console.error('Error adding voucher type:', error);
+      throw error;
+    }
+  };
+
+  const updateVoucherType = async (id: string, config: Partial<VoucherTypeConfig>) => {
+    try {
+      const updateData: any = {};
+      if (config.name !== undefined) updateData.name = config.name;
+      if (config.value !== undefined) updateData.value = config.value;
+      if (config.minLiters !== undefined) updateData.min_liters = config.minLiters;
+      if (config.active !== undefined) updateData.active = config.active;
+
+      const { error } = await supabase
+        .from('voucher_types')
+        .update(updateData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setVoucherTypes(prev => prev.map(t => 
+        t.id === id ? { ...t, ...config } : t
+      ));
+    } catch (error) {
+      console.error('Error updating voucher type:', error);
+      throw error;
+    }
   };
 
   return (
     <VoucherContext.Provider value={{
       vouchers,
       voucherTypes,
+      establishments,
+      loading,
       createVoucher,
       redeemVoucher,
       getVoucherByCode,
-      getVouchersByCashier,
-      getVouchersByEstablishment,
       addVoucherType,
       updateVoucherType,
+      getEligibleVoucherType,
+      refreshData,
     }}>
       {children}
     </VoucherContext.Provider>
