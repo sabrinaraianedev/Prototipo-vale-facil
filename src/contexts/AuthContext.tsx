@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 export type UserRole = 'admin' | 'caixa' | 'estabelecimento';
 
@@ -9,90 +11,116 @@ export interface User {
   role: UserRole;
 }
 
-export interface SystemUser {
-  id: string;
-  name: string;
-  email: string;
-  password: string;
-  role: UserRole;
-  active: boolean;
-  createdAt: Date;
-}
-
 interface AuthContextType {
   user: User | null;
-  users: SystemUser[];
+  session: Session | null;
+  loading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
-  addUser: (user: Omit<SystemUser, 'id' | 'createdAt'>) => void;
-  toggleUserStatus: (id: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const initialUsers: SystemUser[] = [
-  { id: '1', name: 'Administrador', email: 'admin@gmail.com', password: 'admin', role: 'admin', active: true, createdAt: new Date() },
-  { id: '2', name: 'Caixa Principal', email: 'caixa@gmail.com', password: 'caixa', role: 'caixa', active: true, createdAt: new Date() },
-  { id: '3', name: 'Conveniência Central', email: 'estabelecimento@gmail.com', password: 'estabelecimento', role: 'estabelecimento', active: true, createdAt: new Date() },
-];
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('valefacil_user');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [users, setUsers] = useState<SystemUser[]>(initialUsers);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchUserData = async (supabaseUser: SupabaseUser) => {
+    try {
+      // Get user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('name, email')
+        .eq('id', supabaseUser.id)
+        .single();
+
+      // Get user role
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', supabaseUser.id)
+        .single();
+
+      if (profile && roleData) {
+        setUser({
+          id: supabaseUser.id,
+          email: profile.email,
+          name: profile.name,
+          role: roleData.role as UserRole,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        
+        if (session?.user) {
+          // Defer Supabase calls with setTimeout
+          setTimeout(() => {
+            fetchUserData(session.user);
+          }, 0);
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        fetchUserData(session.user);
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const found = users.find(u => u.email === email && u.password === password && u.active);
-    
-    if (found) {
-      const loggedUser: User = {
-        id: found.id,
-        email: found.email,
-        name: found.name,
-        role: found.role,
-      };
-      setUser(loggedUser);
-      localStorage.setItem('valefacil_user', JSON.stringify(loggedUser));
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (data.user) {
+        await fetchUserData(data.user);
+      }
+
       return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Erro ao fazer login' };
     }
-    
-    return { success: false, error: 'E-mail ou senha incorretos' };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem('valefacil_user');
-  };
-
-  const addUser = (userData: Omit<SystemUser, 'id' | 'createdAt'>) => {
-    const newUser: SystemUser = {
-      ...userData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-    };
-    setUsers(prev => [...prev, newUser]);
-  };
-
-  const toggleUserStatus = (id: string) => {
-    setUsers(prev => prev.map(user => 
-      user.id === id ? { ...user, active: !user.active } : user
-    ));
+    setSession(null);
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, 
-      users,
+      session,
+      loading,
       login, 
       logout, 
-      isAuthenticated: !!user,
-      addUser,
-      toggleUserStatus,
+      isAuthenticated: !!user && !!session,
     }}>
       {children}
     </AuthContext.Provider>

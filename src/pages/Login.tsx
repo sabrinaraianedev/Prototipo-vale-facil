@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -6,18 +6,38 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Ticket, Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { z } from 'zod';
+
+const loginSchema = z.object({
+  email: z.string().email('E-mail inválido').max(255),
+  password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres').max(100),
+});
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validate input
+    const validation = loginSchema.safeParse({ email, password });
+    if (!validation.success) {
+      setError(validation.error.errors[0].message);
+      return;
+    }
+
     setIsLoading(true);
 
     const result = await login(email, password);
@@ -32,17 +52,13 @@ export default function Login() {
     setIsLoading(false);
   };
 
-  const demoCredentials = [
-    { role: 'Administrador', email: 'admin@gmail.com', password: 'admin' },
-    { role: 'Caixa', email: 'caixa@gmail.com', password: 'caixa' },
-    { role: 'Estabelecimento', email: 'estabelecimento@gmail.com', password: 'estabelecimento' },
-  ];
-
-  const fillDemo = (email: string, password: string) => {
-    setEmail(email);
-    setPassword(password);
-    setError('');
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 gradient-subtle">
@@ -53,17 +69,17 @@ export default function Login() {
       
       <div className="w-full max-w-md relative">
         {/* Logo */}
-        <div className="text-center mb-8 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-primary shadow-glow mb-4">
-            <Ticket className="h-8 w-8 text-primary-foreground" />
+        <div className="text-center mb-6 sm:mb-8 animate-fade-in">
+          <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl gradient-primary shadow-glow mb-4">
+            <Ticket className="h-7 w-7 sm:h-8 sm:w-8 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">ValeFácil</h1>
-          <p className="text-muted-foreground mt-2">Sistema de Controle de Vales-Brinde</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">ValeFácil</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-2">Sistema de Controle de Vales-Brinde</p>
         </div>
 
         {/* Login Form */}
-        <div className="card-elevated p-8 animate-scale-in">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="card-elevated p-6 sm:p-8 animate-scale-in">
+          <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-foreground font-medium">E-mail</Label>
               <div className="relative">
@@ -74,8 +90,9 @@ export default function Login() {
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 h-12 bg-background border-2 focus:border-primary"
+                  className="pl-10 h-11 sm:h-12 bg-background border-2 focus:border-primary"
                   required
+                  autoComplete="email"
                 />
               </div>
             </div>
@@ -90,15 +107,16 @@ export default function Login() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 h-12 bg-background border-2 focus:border-primary"
+                  className="pl-10 h-11 sm:h-12 bg-background border-2 focus:border-primary"
                   required
+                  autoComplete="current-password"
                 />
               </div>
             </div>
 
             {error && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive animate-fade-in">
-                <AlertCircle className="h-5 w-5" />
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
                 <span className="text-sm font-medium">{error}</span>
               </div>
             )}
@@ -106,7 +124,7 @@ export default function Login() {
             <Button 
               type="submit" 
               variant="gradient"
-              className="w-full h-12" 
+              className="w-full h-11 sm:h-12" 
               disabled={isLoading}
             >
               {isLoading ? (
@@ -121,24 +139,10 @@ export default function Login() {
           </form>
         </div>
 
-        {/* Demo Credentials */}
-        <div className="mt-6 p-6 card-elevated animate-slide-in-right" style={{ animationDelay: '0.2s' }}>
-          <p className="text-sm font-medium text-muted-foreground mb-4 text-center">
-            Credenciais de demonstração
-          </p>
-          <div className="space-y-2">
-            {demoCredentials.map((cred) => (
-              <button
-                key={cred.role}
-                onClick={() => fillDemo(cred.email, cred.password)}
-                className="w-full flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors text-sm"
-              >
-                <span className="font-medium text-foreground">{cred.role}</span>
-                <span className="text-muted-foreground">{cred.email}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Info */}
+        <p className="text-center text-xs sm:text-sm text-muted-foreground mt-6">
+          Entre em contato com o administrador para obter suas credenciais de acesso.
+        </p>
       </div>
     </div>
   );
