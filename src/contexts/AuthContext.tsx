@@ -30,18 +30,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUserData = async (supabaseUser: SupabaseUser) => {
     try {
       // Get user profile
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('name, email')
         .eq('id', supabaseUser.id)
-        .single();
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      }
 
       // Get user role
-      const { data: roleData } = await supabase
+      const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', supabaseUser.id)
-        .single();
+        .maybeSingle();
+
+      if (roleError) {
+        console.error('Error fetching role:', roleError);
+      }
 
       if (profile && roleData) {
         setUser({
@@ -50,22 +58,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: profile.name,
           role: roleData.role as UserRole,
         });
+      } else {
+        // User exists in auth but no profile/role yet
+        console.warn('User has no profile or role yet');
+        setUser(null);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
+      setUser(null);
     }
   };
 
   useEffect(() => {
+    let mounted = true;
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (!mounted) return;
+        
         setSession(session);
         
         if (session?.user) {
           // Defer Supabase calls with setTimeout
           setTimeout(() => {
-            fetchUserData(session.user);
+            if (mounted) {
+              fetchUserData(session.user);
+            }
           }, 0);
         } else {
           setUser(null);
@@ -76,6 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      
       setSession(session);
       if (session?.user) {
         fetchUserData(session.user);
@@ -83,7 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
@@ -94,6 +118,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
+        if (error.message === 'Invalid login credentials') {
+          return { success: false, error: 'E-mail ou senha incorretos' };
+        }
         return { success: false, error: error.message };
       }
 

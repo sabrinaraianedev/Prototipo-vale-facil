@@ -10,7 +10,7 @@ import { z } from 'zod';
 
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido').max(255),
-  password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres').max(100),
+  password: z.string().min(1, 'Senha é obrigatória').max(100),
 });
 
 export default function Login() {
@@ -54,7 +54,7 @@ export default function Login() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
