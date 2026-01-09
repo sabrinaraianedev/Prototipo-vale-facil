@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 
@@ -66,7 +66,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
       setLoading(false);
       return;
@@ -74,12 +74,14 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
 
     try {
       // Fetch voucher types
-      const { data: typesData } = await supabase
+      const { data: typesData, error: typesError } = await supabase
         .from('voucher_types')
         .select('*')
         .order('min_liters', { ascending: true });
 
-      if (typesData) {
+      if (typesError) {
+        console.error('Error fetching voucher types:', typesError);
+      } else if (typesData) {
         setVoucherTypes(typesData.map(t => ({
           id: t.id,
           name: t.name,
@@ -90,12 +92,14 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
       }
 
       // Fetch establishments
-      const { data: estData } = await supabase
+      const { data: estData, error: estError } = await supabase
         .from('establishments')
         .select('*')
         .eq('active', true);
 
-      if (estData) {
+      if (estError) {
+        console.error('Error fetching establishments:', estError);
+      } else if (estData) {
         setEstablishments(estData.map(e => ({
           id: e.id,
           name: e.name,
@@ -104,7 +108,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
       }
 
       // Fetch vouchers with related data
-      const { data: vouchersData } = await supabase
+      const { data: vouchersData, error: vouchersError } = await supabase
         .from('vouchers')
         .select(`
           *,
@@ -113,7 +117,9 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
         `)
         .order('created_at', { ascending: false });
 
-      if (vouchersData) {
+      if (vouchersError) {
+        console.error('Error fetching vouchers:', vouchersError);
+      } else if (vouchersData) {
         setVouchers(vouchersData.map(v => ({
           id: v.id,
           code: v.code,
@@ -137,17 +143,17 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     fetchData();
-  }, [isAuthenticated]);
+  }, [fetchData]);
 
   const refreshData = async () => {
     await fetchData();
   };
 
-  const getEligibleVoucherType = (liters: number): VoucherTypeConfig | null => {
+  const getEligibleVoucherType = useCallback((liters: number): VoucherTypeConfig | null => {
     const activeTypes = voucherTypes.filter(t => t.active);
     // Find the highest tier the user qualifies for
     const eligible = activeTypes
@@ -155,7 +161,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => b.minLiters - a.minLiters);
     
     return eligible[0] || null;
-  };
+  }, [voucherTypes]);
 
   const createVoucher = async (voucherData: {
     value: number;
@@ -169,7 +175,12 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
 
     try {
       // Generate unique code
-      const { data: codeData } = await supabase.rpc('generate_voucher_code');
+      const { data: codeData, error: codeError } = await supabase.rpc('generate_voucher_code');
+      
+      if (codeError) {
+        console.error('Error generating code:', codeError);
+      }
+      
       const code = `VF-${codeData || Math.random().toString(36).substring(2, 10).toUpperCase()}`;
 
       const { data, error } = await supabase
@@ -192,7 +203,10 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating voucher:', error);
+        throw error;
+      }
 
       const newVoucher: Voucher = {
         id: data.id,
@@ -227,9 +241,14 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
         .from('vouchers')
         .select('*')
         .eq('code', code.toUpperCase())
-        .single();
+        .maybeSingle();
 
-      if (findError || !voucherData) {
+      if (findError) {
+        console.error('Error finding voucher:', findError);
+        return { success: false, error: 'Erro ao buscar vale' };
+      }
+
+      if (!voucherData) {
         return { success: false, error: 'Vale não encontrado' };
       }
 
@@ -257,7 +276,10 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
         `)
         .single();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Error updating voucher:', updateError);
+        throw updateError;
+      }
 
       const updatedVoucher: Voucher = {
         id: updatedData.id,
@@ -273,8 +295,8 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
         cashierName: (updatedData.profiles as any)?.name || '',
         status: 'utilizado',
         createdAt: new Date(updatedData.created_at),
-        redeemedAt: new Date(updatedData.redeemed_at),
-        redeemedBy: updatedData.redeemed_by,
+        redeemedAt: new Date(updatedData.redeemed_at!),
+        redeemedBy: updatedData.redeemed_by!,
       };
 
       setVouchers(prev => prev.map(v => v.id === updatedVoucher.id ? updatedVoucher : v));
@@ -296,7 +318,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
           profiles:cashier_id(name)
         `)
         .eq('code', code.toUpperCase())
-        .single();
+        .maybeSingle();
 
       if (error || !data) return null;
 
