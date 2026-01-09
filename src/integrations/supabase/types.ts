@@ -14,16 +14,186 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      establishments: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      voucher_types: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          min_liters: number
+          name: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          min_liters?: number
+          name: string
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          min_liters?: number
+          name?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      vouchers: {
+        Row: {
+          cashier_id: string
+          code: string
+          created_at: string
+          driver_name: string
+          establishment_id: string
+          id: string
+          liters: number
+          redeemed_at: string | null
+          redeemed_by: string | null
+          status: Database["public"]["Enums"]["voucher_status"]
+          value: number
+          vehicle_plate: string
+          voucher_type_id: string | null
+        }
+        Insert: {
+          cashier_id: string
+          code: string
+          created_at?: string
+          driver_name: string
+          establishment_id: string
+          id?: string
+          liters: number
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          status?: Database["public"]["Enums"]["voucher_status"]
+          value: number
+          vehicle_plate: string
+          voucher_type_id?: string | null
+        }
+        Update: {
+          cashier_id?: string
+          code?: string
+          created_at?: string
+          driver_name?: string
+          establishment_id?: string
+          id?: string
+          liters?: number
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          status?: Database["public"]["Enums"]["voucher_status"]
+          value?: number
+          vehicle_plate?: string
+          voucher_type_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vouchers_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vouchers_voucher_type_id_fkey"
+            columns: ["voucher_type_id"]
+            isOneToOne: false
+            referencedRelation: "voucher_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_voucher_code: { Args: never; Returns: string }
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "caixa" | "estabelecimento"
+      voucher_status: "gerado" | "utilizado" | "cancelado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +320,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "caixa", "estabelecimento"],
+      voucher_status: ["gerado", "utilizado", "cancelado"],
+    },
   },
 } as const
