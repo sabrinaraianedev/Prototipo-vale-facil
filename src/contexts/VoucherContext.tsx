@@ -27,6 +27,7 @@ export interface VoucherTypeConfig {
   name: string;
   value: number;
   minLiters: number;
+  establishmentId?: string;
   active: boolean;
 }
 
@@ -99,6 +100,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
           name: t.name,
           value: Number(t.value),
           minLiters: Number(t.min_liters),
+          establishmentId: t.establishment_id || undefined,
           active: t.active,
         })));
       }
@@ -374,6 +376,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
           name: config.name,
           value: config.value,
           min_liters: config.minLiters,
+          establishment_id: config.establishmentId || null,
           active: config.active,
         })
         .select()
@@ -386,6 +389,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
         name: data.name,
         value: Number(data.value),
         minLiters: Number(data.min_liters),
+        establishmentId: data.establishment_id || undefined,
         active: data.active,
       }]);
     } catch (error) {
@@ -400,6 +404,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
       if (config.name !== undefined) updateData.name = config.name;
       if (config.value !== undefined) updateData.value = config.value;
       if (config.minLiters !== undefined) updateData.min_liters = config.minLiters;
+      if (config.establishmentId !== undefined) updateData.establishment_id = config.establishmentId;
       if (config.active !== undefined) updateData.active = config.active;
 
       const { error } = await supabase

@@ -6,8 +6,7 @@ import { DashboardLayout } from '@/components/Layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { QrCode, Ticket, CheckCircle, Copy, Download, Fuel, AlertCircle } from 'lucide-react';
+import { QrCode, Ticket, CheckCircle, Copy, Download, Fuel, AlertCircle, Store } from 'lucide-react';
 import { toast } from 'sonner';
 import QRCode from 'react-qr-code';
 import jsPDF from 'jspdf';
@@ -27,17 +26,24 @@ export default function GenerateVoucher() {
     liters: '',
     vehiclePlate: '',
     driverName: '',
-    establishmentId: '',
   });
   
-  const [eligibleType, setEligibleType] = useState<{ id: string; name: string; value: number; minLiters: number } | null>(null);
+  const [eligibleType, setEligibleType] = useState<{ 
+    id: string; 
+    name: string; 
+    value: number; 
+    minLiters: number;
+    establishmentId?: string;
+  } | null>(null);
+  
   const [generatedVoucher, setGeneratedVoucher] = useState<{
     code: string;
     value: number;
+    establishmentName: string;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Check eligibility when liters change
+  // Check eligibility when liters change - auto-fill type and establishment
   useEffect(() => {
     const liters = parseFloat(formData.liters);
     if (!isNaN(liters) && liters > 0) {
@@ -50,16 +56,28 @@ export default function GenerateVoucher() {
 
   const activeTypes = voucherTypes.filter(t => t.active).sort((a, b) => a.minLiters - b.minLiters);
 
+  // Get establishment name for eligible type
+  const getEstablishmentName = (establishmentId?: string) => {
+    if (!establishmentId) return 'Todos';
+    const est = establishments.find(e => e.id === establishmentId);
+    return est?.name || 'Desconhecido';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user || !formData.liters || !formData.vehiclePlate || !formData.driverName || !formData.establishmentId) {
+    if (!user || !formData.liters || !formData.vehiclePlate || !formData.driverName) {
       toast.error('Preencha todos os campos');
       return;
     }
 
     if (!eligibleType) {
       toast.error('Litragem insuficiente para gerar vale');
+      return;
+    }
+
+    if (!eligibleType.establishmentId) {
+      toast.error('Tipo de vale sem estabelecimento definido');
       return;
     }
 
@@ -71,13 +89,15 @@ export default function GenerateVoucher() {
       vehiclePlate: formData.vehiclePlate.toUpperCase(),
       driverName: formData.driverName,
       liters: parseFloat(formData.liters),
-      establishmentId: formData.establishmentId,
+      establishmentId: eligibleType.establishmentId,
     });
 
     if (voucher) {
+      const estName = getEstablishmentName(eligibleType.establishmentId);
       setGeneratedVoucher({
         code: voucher.code,
         value: voucher.value,
+        establishmentName: estName,
       });
       toast.success('Vale gerado com sucesso!');
     } else {
@@ -92,6 +112,16 @@ export default function GenerateVoucher() {
       navigator.clipboard.writeText(generatedVoucher.code);
       toast.success('Código copiado!');
     }
+  };
+
+  // Generate QR code data with value and establishment
+  const getQRCodeData = () => {
+    if (!generatedVoucher) return '';
+    return JSON.stringify({
+      code: generatedVoucher.code,
+      value: generatedVoucher.value,
+      establishment: generatedVoucher.establishmentName,
+    });
   };
 
   const downloadQR = () => {
@@ -124,6 +154,9 @@ export default function GenerateVoucher() {
         pdf.setFontSize(14);
         pdf.text(`Valor: ${formatCurrency(generatedVoucher.value)}`, 105, 160, { align: 'center' });
         
+        pdf.setFontSize(12);
+        pdf.text(`Estabelecimento: ${generatedVoucher.establishmentName}`, 105, 175, { align: 'center' });
+        
         pdf.save(`vale-${generatedVoucher.code}.pdf`);
       };
       img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
@@ -135,7 +168,6 @@ export default function GenerateVoucher() {
       liters: '',
       vehiclePlate: '',
       driverName: '',
-      establishmentId: '',
     });
     setGeneratedVoucher(null);
     setEligibleType(null);
@@ -190,6 +222,10 @@ export default function GenerateVoucher() {
                   <p className="text-xs sm:text-sm text-muted-foreground">A partir de {type.minLiters}L</p>
                   <p className="font-bold text-foreground text-sm sm:text-base">{type.name}</p>
                   <p className="text-primary font-semibold text-sm">{formatCurrency(type.value)}</p>
+                  <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                    <Store className="h-3 w-3" />
+                    <span>{getEstablishmentName(type.establishmentId)}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -219,9 +255,15 @@ export default function GenerateVoucher() {
                   </div>
                 )}
                 {eligibleType && (
-                  <div className="flex items-center gap-2 text-success text-sm">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Vale de {formatCurrency(eligibleType.value)} ({eligibleType.name})</span>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-success text-sm">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Vale de {formatCurrency(eligibleType.value)} ({eligibleType.name})</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <Store className="h-4 w-4" />
+                      <span>Estabelecimento: {getEstablishmentName(eligibleType.establishmentId)}</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -249,30 +291,11 @@ export default function GenerateVoucher() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Estabelecimento</Label>
-                <Select
-                  value={formData.establishmentId}
-                  onValueChange={(value) => setFormData({ ...formData, establishmentId: value })}
-                >
-                  <SelectTrigger className="h-11 sm:h-12">
-                    <SelectValue placeholder="Onde o vale será utilizado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {establishments.map((est) => (
-                      <SelectItem key={est.id} value={est.id}>
-                        {est.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               <Button 
                 type="submit" 
                 variant="gradient" 
                 className="w-full h-11 sm:h-12"
-                disabled={!eligibleType || isSubmitting}
+                disabled={!eligibleType || !eligibleType.establishmentId || isSubmitting}
               >
                 {isSubmitting ? (
                   <div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
@@ -301,7 +324,7 @@ export default function GenerateVoucher() {
                 <div className="p-3 sm:p-4 bg-white rounded-xl mx-auto w-fit">
                   <QRCode
                     id="voucher-qr"
-                    value={generatedVoucher.code}
+                    value={getQRCodeData()}
                     size={160}
                     level="H"
                   />
@@ -312,6 +335,10 @@ export default function GenerateVoucher() {
                   <p className="text-base sm:text-lg text-muted-foreground">
                     Valor: <span className="font-bold text-foreground">{formatCurrency(generatedVoucher.value)}</span>
                   </p>
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                    <Store className="h-4 w-4" />
+                    <span className="text-sm">{generatedVoucher.establishmentName}</span>
+                  </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
