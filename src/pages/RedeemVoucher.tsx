@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVouchers, Voucher } from '@/contexts/VoucherContext';
 import { DashboardLayout } from '@/components/Layout/DashboardLayout';
@@ -11,8 +12,15 @@ import { cn } from '@/lib/utils';
 import { QRScanner } from '@/components/Scanner/QRScanner';
 
 export default function RedeemVoucher() {
-  const { user } = useAuth();
+  const { user, loading, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const { redeemVoucher, getVoucherByCode } = useVouchers();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate('/login');
+    }
+  }, [loading, isAuthenticated, navigate]);
   
   const [code, setCode] = useState('');
   const [searchedVoucher, setSearchedVoucher] = useState<Voucher | null>(null);

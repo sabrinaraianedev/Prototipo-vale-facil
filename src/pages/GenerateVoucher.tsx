@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVouchers } from '@/contexts/VoucherContext';
 import { DashboardLayout } from '@/components/Layout/DashboardLayout';
@@ -12,8 +13,15 @@ import QRCode from 'react-qr-code';
 import jsPDF from 'jspdf';
 
 export default function GenerateVoucher() {
-  const { user } = useAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const { voucherTypes, establishments, createVoucher, getEligibleVoucherType, loading } = useVouchers();
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      navigate('/login');
+    }
+  }, [authLoading, isAuthenticated, navigate]);
   
   const [formData, setFormData] = useState({
     liters: '',
@@ -136,7 +144,7 @@ export default function GenerateVoucher() {
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
@@ -145,6 +153,8 @@ export default function GenerateVoucher() {
       </DashboardLayout>
     );
   }
+
+  if (!user) return null;
 
   return (
     <DashboardLayout>
