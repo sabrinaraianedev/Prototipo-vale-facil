@@ -66,11 +66,23 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Reset state when user logs out
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setVouchers([]);
+      setVoucherTypes([]);
+      setEstablishments([]);
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
+
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
       setLoading(false);
       return;
     }
+
+    setLoading(true);
 
     try {
       // Fetch voucher types
@@ -107,19 +119,31 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
         })));
       }
 
-      // Fetch vouchers with related data
+      // Fetch vouchers and establishments separately to avoid join issues
       const { data: vouchersData, error: vouchersError } = await supabase
         .from('vouchers')
-        .select(`
-          *,
-          establishments:establishment_id(name),
-          profiles:cashier_id(name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (vouchersError) {
         console.error('Error fetching vouchers:', vouchersError);
       } else if (vouchersData) {
+        // Get establishment names mapping
+        const { data: allEstablishments } = await supabase
+          .from('establishments')
+          .select('id, name');
+        
+        const estMap = new Map((allEstablishments || []).map(e => [e.id, e.name]));
+
+        // Get cashier names mapping
+        const cashierIds = [...new Set(vouchersData.map(v => v.cashier_id))];
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', cashierIds);
+        
+        const profileMap = new Map((profilesData || []).map(p => [p.id, p.name]));
+
         setVouchers(vouchersData.map(v => ({
           id: v.id,
           code: v.code,
@@ -129,9 +153,9 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
           driverName: v.driver_name,
           liters: Number(v.liters),
           establishmentId: v.establishment_id,
-          establishmentName: (v.establishments as any)?.name || '',
+          establishmentName: estMap.get(v.establishment_id) || '',
           cashierId: v.cashier_id,
-          cashierName: (v.profiles as any)?.name || '',
+          cashierName: profileMap.get(v.cashier_id) || '',
           status: v.status as VoucherStatus,
           createdAt: new Date(v.created_at),
           redeemedAt: v.redeemed_at ? new Date(v.redeemed_at) : undefined,
@@ -196,17 +220,16 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
           cashier_id: user.id,
           status: 'gerado',
         })
-        .select(`
-          *,
-          establishments:establishment_id(name),
-          profiles:cashier_id(name)
-        `)
+        .select('*')
         .single();
 
       if (error) {
         console.error('Error creating voucher:', error);
         throw error;
       }
+
+      // Get establishment name
+      const establishment = establishments.find(e => e.id === voucherData.establishmentId);
 
       const newVoucher: Voucher = {
         id: data.id,
@@ -217,9 +240,9 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
         driverName: data.driver_name,
         liters: Number(data.liters),
         establishmentId: data.establishment_id,
-        establishmentName: (data.establishments as any)?.name || '',
+        establishmentName: establishment?.name || '',
         cashierId: data.cashier_id,
-        cashierName: (data.profiles as any)?.name || user.name,
+        cashierName: user.name,
         status: 'gerado',
         createdAt: new Date(data.created_at),
       };
@@ -269,17 +292,16 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
           redeemed_by: user.id,
         })
         .eq('id', voucherData.id)
-        .select(`
-          *,
-          establishments:establishment_id(name),
-          profiles:cashier_id(name)
-        `)
+        .select('*')
         .single();
 
       if (updateError) {
         console.error('Error updating voucher:', updateError);
         throw updateError;
       }
+
+      // Get establishment name
+      const establishment = establishments.find(e => e.id === updatedData.establishment_id);
 
       const updatedVoucher: Voucher = {
         id: updatedData.id,
@@ -290,9 +312,9 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
         driverName: updatedData.driver_name,
         liters: Number(updatedData.liters),
         establishmentId: updatedData.establishment_id,
-        establishmentName: (updatedData.establishments as any)?.name || '',
+        establishmentName: establishment?.name || '',
         cashierId: updatedData.cashier_id,
-        cashierName: (updatedData.profiles as any)?.name || '',
+        cashierName: '',
         status: 'utilizado',
         createdAt: new Date(updatedData.created_at),
         redeemedAt: new Date(updatedData.redeemed_at!),
@@ -312,15 +334,14 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('vouchers')
-        .select(`
-          *,
-          establishments:establishment_id(name),
-          profiles:cashier_id(name)
-        `)
+        .select('*')
         .eq('code', code.toUpperCase())
         .maybeSingle();
 
       if (error || !data) return null;
+
+      // Get establishment name
+      const establishment = establishments.find(e => e.id === data.establishment_id);
 
       return {
         id: data.id,
@@ -331,9 +352,9 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
         driverName: data.driver_name,
         liters: Number(data.liters),
         establishmentId: data.establishment_id,
-        establishmentName: (data.establishments as any)?.name || '',
+        establishmentName: establishment?.name || '',
         cashierId: data.cashier_id,
-        cashierName: (data.profiles as any)?.name || '',
+        cashierName: '',
         status: data.status as VoucherStatus,
         createdAt: new Date(data.created_at),
         redeemedAt: data.redeemed_at ? new Date(data.redeemed_at) : undefined,
