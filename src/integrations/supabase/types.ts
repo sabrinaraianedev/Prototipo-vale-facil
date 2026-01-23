@@ -84,6 +84,7 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          establishment_id: string | null
           id: string
           min_liters: number
           name: string
@@ -93,6 +94,7 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          establishment_id?: string | null
           id?: string
           min_liters?: number
           name: string
@@ -102,13 +104,22 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          establishment_id?: string | null
           id?: string
           min_liters?: number
           name?: string
           updated_at?: string
           value?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "voucher_types_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vouchers: {
         Row: {

@@ -4,26 +4,28 @@ import { DashboardLayout } from '@/components/Layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Ticket, Plus, Fuel, Droplets } from 'lucide-react';
+import { Ticket, Plus, Fuel, Droplets, Store } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 export default function VoucherTypes() {
-  const { voucherTypes, addVoucherType, updateVoucherType, loading } = useVouchers();
+  const { voucherTypes, establishments, addVoucherType, updateVoucherType, loading } = useVouchers();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     value: '',
     minLiters: '',
+    establishmentId: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.value || !formData.minLiters) {
+    if (!formData.name || !formData.value || !formData.minLiters || !formData.establishmentId) {
       toast.error('Preencha todos os campos');
       return;
     }
@@ -35,10 +37,11 @@ export default function VoucherTypes() {
         name: formData.name,
         value: parseFloat(formData.value),
         minLiters: parseFloat(formData.minLiters),
+        establishmentId: formData.establishmentId,
         active: true,
       });
 
-      setFormData({ name: '', value: '', minLiters: '' });
+      setFormData({ name: '', value: '', minLiters: '', establishmentId: '' });
       setIsDialogOpen(false);
       toast.success('Tipo de vale criado com sucesso!');
     } catch (error) {
@@ -59,6 +62,12 @@ export default function VoucherTypes() {
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+  const getEstablishmentName = (id?: string) => {
+    if (!id) return 'Todos';
+    const est = establishments.find(e => e.id === id);
+    return est?.name || 'Desconhecido';
+  };
 
   const sortedTypes = [...voucherTypes].sort((a, b) => a.minLiters - b.minLiters);
 
@@ -135,6 +144,24 @@ export default function VoucherTypes() {
                     className="h-11"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Estabelecimento</Label>
+                  <Select
+                    value={formData.establishmentId}
+                    onValueChange={(value) => setFormData({ ...formData, establishmentId: value })}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Onde o vale será utilizado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {establishments.map((est) => (
+                        <SelectItem key={est.id} value={est.id}>
+                          {est.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <Button type="button" variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
                     Cancelar
@@ -174,6 +201,10 @@ export default function VoucherTypes() {
                   <div className="flex items-center gap-1 mt-2 text-muted-foreground">
                     <Droplets className="h-4 w-4" />
                     <span className="text-xs sm:text-sm">Mínimo: {voucherType.minLiters}L</span>
+                  </div>
+                  <div className="flex items-center gap-1 mt-1 text-muted-foreground">
+                    <Store className="h-4 w-4" />
+                    <span className="text-xs sm:text-sm">{getEstablishmentName(voucherType.establishmentId)}</span>
                   </div>
                 </div>
 
