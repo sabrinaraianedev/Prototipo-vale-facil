@@ -130,6 +130,7 @@ export type Database = {
           establishment_id: string
           id: string
           liters: number
+          receipt_number: string | null
           redeemed_at: string | null
           redeemed_by: string | null
           status: Database["public"]["Enums"]["voucher_status"]
@@ -145,6 +146,7 @@ export type Database = {
           establishment_id: string
           id?: string
           liters: number
+          receipt_number?: string | null
           redeemed_at?: string | null
           redeemed_by?: string | null
           status?: Database["public"]["Enums"]["voucher_status"]
@@ -160,6 +162,7 @@ export type Database = {
           establishment_id?: string
           id?: string
           liters?: number
+          receipt_number?: string | null
           redeemed_at?: string | null
           redeemed_by?: string | null
           status?: Database["public"]["Enums"]["voucher_status"]

@@ -251,7 +251,7 @@ export default function RedeemVoucher() {
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">Caixa</p>
-                    <p className="font-medium text-sm sm:text-base truncate">{searchedVoucher.cashierName}</p>
+                    <p className="font-medium text-sm sm:text-base truncate">{searchedVoucher.cashierName || 'N/A'}</p>
                   </div>
                 </div>
 
