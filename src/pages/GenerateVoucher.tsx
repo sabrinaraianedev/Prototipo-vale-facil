@@ -6,10 +6,10 @@ import { DashboardLayout } from '@/components/Layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { QrCode, Ticket, CheckCircle, Copy, Download, Fuel, AlertCircle, Store } from 'lucide-react';
+import { QrCode, Ticket, CheckCircle, Copy, Download, Fuel, AlertCircle, Store, Printer, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
-import QRCode from 'react-qr-code';
 import jsPDF from 'jspdf';
+import { ThermalReceipt } from '@/components/Voucher/ThermalReceipt';
 
 export default function GenerateVoucher() {
   const { user, loading: authLoading, isAuthenticated } = useAuth();
@@ -26,6 +26,7 @@ export default function GenerateVoucher() {
     liters: '',
     vehiclePlate: '',
     driverName: '',
+    receiptNumber: '',
   });
   
   const [eligibleType, setEligibleType] = useState<{ 
@@ -40,6 +41,11 @@ export default function GenerateVoucher() {
     code: string;
     value: number;
     establishmentName: string;
+    driverName: string;
+    vehiclePlate: string;
+    receiptNumber: string;
+    cashierName: string;
+    createdAt: Date;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -67,7 +73,7 @@ export default function GenerateVoucher() {
     e.preventDefault();
     
     if (!user || !formData.liters || !formData.vehiclePlate || !formData.driverName) {
-      toast.error('Preencha todos os campos');
+      toast.error('Preencha todos os campos obrigatórios');
       return;
     }
 
@@ -90,6 +96,7 @@ export default function GenerateVoucher() {
       driverName: formData.driverName,
       liters: parseFloat(formData.liters),
       establishmentId: eligibleType.establishmentId,
+      receiptNumber: formData.receiptNumber || undefined,
     });
 
     if (voucher) {
@@ -98,6 +105,11 @@ export default function GenerateVoucher() {
         code: voucher.code,
         value: voucher.value,
         establishmentName: estName,
+        driverName: formData.driverName,
+        vehiclePlate: formData.vehiclePlate.toUpperCase(),
+        receiptNumber: formData.receiptNumber,
+        cashierName: user.name,
+        createdAt: new Date(),
       });
       toast.success('Vale gerado com sucesso!');
     } else {
@@ -114,49 +126,111 @@ export default function GenerateVoucher() {
     }
   };
 
-  // Generate QR code data with value and establishment
+  // Generate QR code data with all required info
   const getQRCodeData = () => {
     if (!generatedVoucher) return '';
     return JSON.stringify({
       code: generatedVoucher.code,
       value: generatedVoucher.value,
+      driver: generatedVoucher.driverName,
       establishment: generatedVoucher.establishmentName,
+      receipt: generatedVoucher.receiptNumber || '',
+      date: generatedVoucher.createdAt.toISOString(),
     });
   };
 
-  const downloadQR = () => {
-    const svg = document.getElementById('voucher-qr');
-    if (svg && generatedVoucher) {
-      const svgData = new XMLSerializer().serializeToString(svg);
+  // Download thermal receipt PDF (58mm width)
+  const downloadThermalPDF = () => {
+    if (!generatedVoucher) return;
+
+    // 58mm thermal printer width = approximately 164 points (58mm * 2.83)
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [58, 120], // 58mm wide, 120mm tall
+    });
+
+    const centerX = 29; // Center of 58mm
+    let y = 5;
+
+    // Header
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('VALE-BRINDE', centerX, y, { align: 'center' });
+    y += 5;
+
+    // Date
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(generatedVoucher.createdAt), centerX, y, { align: 'center' });
+    y += 6;
+
+    // Dashed line
+    pdf.setLineDashPattern([1, 1], 0);
+    pdf.line(3, y, 55, y);
+    y += 5;
+
+    // QR Code - we need to create it as image
+    const qrElement = document.getElementById('voucher-qr');
+    if (qrElement) {
+      const svgData = new XMLSerializer().serializeToString(qrElement);
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
+      
       img.onload = () => {
-        canvas.width = 200;
-        canvas.height = 200;
-        ctx?.drawImage(img, 0, 0, 200, 200);
+        canvas.width = 150;
+        canvas.height = 150;
+        ctx?.drawImage(img, 0, 0, 150, 150);
         const pngData = canvas.toDataURL('image/png');
         
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4'
-        });
+        // Add QR to PDF
+        pdf.addImage(pngData, 'PNG', 9, y, 40, 40);
+        y += 44;
+
+        // Code
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(generatedVoucher.code, centerX, y, { align: 'center' });
+        y += 5;
+
+        // Dashed line
+        pdf.line(3, y, 55, y);
+        y += 5;
+
+        // Details
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
         
-        pdf.setFontSize(20);
-        pdf.text('Vale-Brinde', 105, 30, { align: 'center' });
+        pdf.text(`Valor: ${formatCurrency(generatedVoucher.value)}`, 3, y);
+        y += 4;
         
-        pdf.addImage(pngData, 'PNG', 65, 50, 80, 80);
+        pdf.text(`Motorista: ${generatedVoucher.driverName}`, 3, y);
+        y += 4;
         
-        pdf.setFontSize(16);
-        pdf.text(generatedVoucher.code, 105, 145, { align: 'center' });
-        
-        pdf.setFontSize(14);
-        pdf.text(`Valor: ${formatCurrency(generatedVoucher.value)}`, 105, 160, { align: 'center' });
-        
-        pdf.setFontSize(12);
-        pdf.text(`Estabelecimento: ${generatedVoucher.establishmentName}`, 105, 175, { align: 'center' });
-        
+        pdf.text(`Placa: ${generatedVoucher.vehiclePlate}`, 3, y);
+        y += 4;
+
+        if (generatedVoucher.receiptNumber) {
+          pdf.text(`Cupom: ${generatedVoucher.receiptNumber}`, 3, y);
+          y += 4;
+        }
+
+        pdf.text(`Caixa: ${generatedVoucher.cashierName}`, 3, y);
+        y += 5;
+
+        // Dashed line
+        pdf.line(3, y, 55, y);
+        y += 4;
+
+        // Establishment
+        pdf.setFontSize(7);
+        pdf.text('Válido somente em:', centerX, y, { align: 'center' });
+        y += 4;
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(generatedVoucher.establishmentName, centerX, y, { align: 'center' });
+
         pdf.save(`vale-${generatedVoucher.code}.pdf`);
       };
       img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
@@ -168,6 +242,7 @@ export default function GenerateVoucher() {
       liters: '',
       vehiclePlate: '',
       driverName: '',
+      receiptNumber: '',
     });
     setGeneratedVoucher(null);
     setEligibleType(null);
@@ -291,6 +366,17 @@ export default function GenerateVoucher() {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="receiptNumber">Número do Cupom Fiscal (opcional)</Label>
+                <Input
+                  id="receiptNumber"
+                  placeholder="Ex: 000123"
+                  value={formData.receiptNumber}
+                  onChange={(e) => setFormData({ ...formData, receiptNumber: e.target.value })}
+                  className="h-11 sm:h-12"
+                />
+              </div>
+
               <Button 
                 type="submit" 
                 variant="gradient" 
@@ -322,11 +408,15 @@ export default function GenerateVoucher() {
                 </div>
                 
                 <div className="p-3 sm:p-4 bg-white rounded-xl mx-auto w-fit">
-                  <QRCode
-                    id="voucher-qr"
-                    value={getQRCodeData()}
-                    size={160}
-                    level="H"
+                  <ThermalReceipt
+                    code={generatedVoucher.code}
+                    value={generatedVoucher.value}
+                    driverName={generatedVoucher.driverName}
+                    vehiclePlate={generatedVoucher.vehiclePlate}
+                    establishment={generatedVoucher.establishmentName}
+                    receiptNumber={generatedVoucher.receiptNumber}
+                    cashierName={generatedVoucher.cashierName}
+                    createdAt={generatedVoucher.createdAt}
                   />
                 </div>
 
@@ -346,9 +436,9 @@ export default function GenerateVoucher() {
                     <Copy className="h-4 w-4" />
                     Copiar
                   </Button>
-                  <Button variant="outline" onClick={downloadQR} className="w-full sm:w-auto">
-                    <Download className="h-4 w-4" />
-                    Baixar PDF
+                  <Button variant="outline" onClick={downloadThermalPDF} className="w-full sm:w-auto">
+                    <Printer className="h-4 w-4" />
+                    Imprimir (Térmica)
                   </Button>
                 </div>
 

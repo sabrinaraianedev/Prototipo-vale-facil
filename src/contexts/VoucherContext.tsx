@@ -20,6 +20,7 @@ export interface Voucher {
   createdAt: Date;
   redeemedAt?: Date;
   redeemedBy?: string;
+  receiptNumber?: string;
 }
 
 export interface VoucherTypeConfig {
@@ -49,6 +50,7 @@ interface VoucherContextType {
     driverName: string;
     liters: number;
     establishmentId: string;
+    receiptNumber?: string;
   }) => Promise<Voucher | null>;
   redeemVoucher: (code: string) => Promise<{ success: boolean; error?: string; voucher?: Voucher }>;
   getVoucherByCode: (code: string) => Promise<Voucher | null>;
@@ -196,6 +198,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
     driverName: string;
     liters: number;
     establishmentId: string;
+    receiptNumber?: string;
   }): Promise<Voucher | null> => {
     if (!user) return null;
 
@@ -221,6 +224,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
           establishment_id: voucherData.establishmentId,
           cashier_id: user.id,
           status: 'gerado',
+          receipt_number: voucherData.receiptNumber || null,
         })
         .select('*')
         .single();
@@ -247,6 +251,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
         cashierName: user.name,
         status: 'gerado',
         createdAt: new Date(data.created_at),
+        receiptNumber: data.receipt_number || undefined,
       };
 
       setVouchers(prev => [newVoucher, ...prev]);
@@ -345,6 +350,13 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
       // Get establishment name
       const establishment = establishments.find(e => e.id === data.establishment_id);
 
+      // Get cashier name
+      const { data: cashierData } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', data.cashier_id)
+        .maybeSingle();
+
       return {
         id: data.id,
         code: data.code,
@@ -356,11 +368,12 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
         establishmentId: data.establishment_id,
         establishmentName: establishment?.name || '',
         cashierId: data.cashier_id,
-        cashierName: '',
+        cashierName: cashierData?.name || '',
         status: data.status as VoucherStatus,
         createdAt: new Date(data.created_at),
         redeemedAt: data.redeemed_at ? new Date(data.redeemed_at) : undefined,
         redeemedBy: data.redeemed_by || undefined,
+        receiptNumber: data.receipt_number || undefined,
       };
     } catch (error) {
       console.error('Error fetching voucher:', error);
