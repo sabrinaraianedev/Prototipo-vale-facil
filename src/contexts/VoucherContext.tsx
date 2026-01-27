@@ -45,7 +45,7 @@ interface VoucherContextType {
   loading: boolean;
   createVoucher: (voucher: {
     value: number;
-    voucherTypeId: string;
+    voucherTypeId: string | null;
     vehiclePlate: string;
     driverName: string;
     liters: number;
@@ -194,7 +194,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
 
   const createVoucher = async (voucherData: {
     value: number;
-    voucherTypeId: string;
+    voucherTypeId: string | null;
     vehiclePlate: string;
     driverName: string;
     liters: number;
