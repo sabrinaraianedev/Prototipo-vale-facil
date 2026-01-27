@@ -53,6 +53,7 @@ interface VoucherContextType {
     receiptNumber?: string;
   }) => Promise<Voucher | null>;
   redeemVoucher: (code: string) => Promise<{ success: boolean; error?: string; voucher?: Voucher }>;
+  deleteVoucher: (id: string) => Promise<{ success: boolean; error?: string }>;
   getVoucherByCode: (code: string) => Promise<Voucher | null>;
   addVoucherType: (config: Omit<VoucherTypeConfig, 'id'>) => Promise<void>;
   updateVoucherType: (id: string, config: Partial<VoucherTypeConfig>) => Promise<void>;
@@ -337,6 +338,25 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteVoucher = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'Usuário não autenticado' };
+
+    try {
+      const { error } = await supabase
+        .from('vouchers')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setVouchers(prev => prev.filter(v => v.id !== id));
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error deleting voucher:', error);
+      return { success: false, error: error.message || 'Erro ao excluir vale' };
+    }
+  };
+
   const getVoucherByCode = async (code: string): Promise<Voucher | null> => {
     try {
       const { data, error } = await supabase
@@ -444,6 +464,7 @@ export function VoucherProvider({ children }: { children: ReactNode }) {
       loading,
       createVoucher,
       redeemVoucher,
+      deleteVoucher,
       getVoucherByCode,
       addVoucherType,
       updateVoucherType,

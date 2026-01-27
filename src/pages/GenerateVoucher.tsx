@@ -77,6 +77,11 @@ export default function GenerateVoucher() {
       return;
     }
 
+    if (!formData.receiptNumber.trim()) {
+      toast.error('O número do cupom fiscal é obrigatório');
+      return;
+    }
+
     if (!eligibleType) {
       toast.error('Litragem insuficiente para gerar vale');
       return;
@@ -96,7 +101,7 @@ export default function GenerateVoucher() {
       driverName: formData.driverName,
       liters: parseFloat(formData.liters),
       establishmentId: eligibleType.establishmentId,
-      receiptNumber: formData.receiptNumber || undefined,
+      receiptNumber: formData.receiptNumber,
     });
 
     if (voucher) {
@@ -230,6 +235,16 @@ export default function GenerateVoucher() {
         pdf.setFontSize(8);
         pdf.setFont('helvetica', 'bold');
         pdf.text(generatedVoucher.establishmentName, centerX, y, { align: 'center' });
+        y += 6;
+
+        // Footer message
+        pdf.line(3, y, 55, y);
+        y += 4;
+        pdf.setFontSize(6);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Apresente este comprovante', centerX, y, { align: 'center' });
+        y += 3;
+        pdf.text('no estabelecimento', centerX, y, { align: 'center' });
 
         pdf.save(`vale-${generatedVoucher.code}.pdf`);
       };
@@ -367,13 +382,14 @@ export default function GenerateVoucher() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="receiptNumber">Número do Cupom Fiscal (opcional)</Label>
+                <Label htmlFor="receiptNumber">Número do Cupom Fiscal *</Label>
                 <Input
                   id="receiptNumber"
                   placeholder="Ex: 000123"
                   value={formData.receiptNumber}
                   onChange={(e) => setFormData({ ...formData, receiptNumber: e.target.value })}
                   className="h-11 sm:h-12"
+                  required
                 />
               </div>
 
