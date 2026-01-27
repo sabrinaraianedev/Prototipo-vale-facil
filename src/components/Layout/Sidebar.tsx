@@ -65,15 +65,23 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile toggle */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed top-4 left-4 z-50 lg:hidden"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </Button>
+      {/* Mobile Header */}
+      <header className="fixed top-0 left-0 right-0 h-14 bg-card border-b border-border flex items-center px-4 z-50 lg:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="shrink-0"
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </Button>
+        <div className="flex items-center gap-2 ml-3">
+          <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
+            <Ticket className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <span className="font-semibold text-foreground">ValeFácil</span>
+        </div>
+      </header>
 
       {/* Overlay */}
       {isOpen && (
