@@ -87,12 +87,26 @@ export default function RedeemVoucher() {
       timeStyle: 'short' 
     }).format(date);
 
-  const handleScan = async (scannedCode: string) => {
+  const handleScan = async (scannedData: string) => {
     setShowScanner(false);
-    setCode(scannedCode.toUpperCase());
     setIsSearching(true);
     
-    const voucher = await getVoucherByCode(scannedCode.toUpperCase());
+    let voucherCode = scannedData;
+    
+    // Try to parse as JSON (new QR code format)
+    try {
+      const parsed = JSON.parse(scannedData);
+      if (parsed.code) {
+        voucherCode = parsed.code;
+      }
+    } catch {
+      // Not JSON, use as-is (legacy format or plain code)
+      voucherCode = scannedData.toUpperCase();
+    }
+    
+    setCode(voucherCode);
+    
+    const voucher = await getVoucherByCode(voucherCode);
     if (voucher) {
       setSearchedVoucher(voucher);
       setSearchError('');

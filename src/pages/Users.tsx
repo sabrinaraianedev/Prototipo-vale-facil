@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Users as UsersIcon, Plus, UserCircle, Shield, Store, CreditCard } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Users as UsersIcon, Plus, UserCircle, Shield, Store, CreditCard, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -158,6 +159,30 @@ export default function Users() {
     }
   };
 
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    try {
+      // Delete from user_roles first
+      await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      // Delete from profiles
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast.success(`Usuário ${userName} excluído com sucesso`);
+      setUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast.error('Erro ao excluir usuário');
+    }
+  };
+
   if (loading || authLoading) {
     return (
       <DashboardLayout>
@@ -277,9 +302,35 @@ export default function Users() {
                     {getRoleIcon(userItem.role)}
                     <span className="text-xs sm:text-sm">{getRoleLabel(userItem.role)}</span>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full ${userItem.active ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'}`}>
-                    {userItem.active ? 'Ativo' : 'Inativo'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-1 rounded-full ${userItem.active ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'}`}>
+                      {userItem.active ? 'Ativo' : 'Inativo'}
+                    </span>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja excluir {userItem.name}? Esta ação não pode ser desfeita.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeleteUser(userItem.id, userItem.name)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </div>
             ))}

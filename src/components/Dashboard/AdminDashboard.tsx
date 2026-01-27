@@ -1,10 +1,23 @@
 import { useVouchers } from '@/contexts/VoucherContext';
 import { StatCard } from '@/components/Stats/StatCard';
-import { Ticket, DollarSign, CheckCircle, Users } from 'lucide-react';
+import { VoucherChart } from '@/components/Dashboard/VoucherChart';
+import { Ticket, DollarSign, CheckCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 export function AdminDashboard() {
-  const { vouchers, loading } = useVouchers();
+  const { vouchers, loading, deleteVoucher } = useVouchers();
+
+  const handleDeleteVoucher = async (id: string, code: string) => {
+    const result = await deleteVoucher(id);
+    if (result.success) {
+      toast.success(`Vale ${code} excluído`);
+    } else {
+      toast.error(result.error || 'Erro ao excluir vale');
+    }
+  };
 
   const totalDistributed = vouchers.length;
   const usedVouchers = vouchers.filter(v => v.status === 'utilizado');
@@ -37,27 +50,27 @@ export function AdminDashboard() {
         <p className="text-sm sm:text-base text-muted-foreground mt-1">Visão geral do sistema de vales-brinde</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
         <StatCard
-          title="Vales"
+          title="Total de Vales"
           value={totalDistributed}
           icon={<Ticket className="h-5 w-5 text-primary-foreground" />}
         />
         <StatCard
-          title="Distribuído"
+          title="Valor Distribuído"
           value={formatCurrency(totalValue)}
           icon={<DollarSign className="h-5 w-5 text-primary-foreground" />}
         />
         <StatCard
-          title="Resgatado"
+          title="Valor Resgatado"
           value={formatCurrency(totalRedeemed)}
           icon={<CheckCircle className="h-5 w-5 text-primary-foreground" />}
         />
-        <StatCard
-          title="Taxa"
-          value={`${totalDistributed > 0 ? Math.round((usedVouchers.length / totalDistributed) * 100) : 0}%`}
-          icon={<Users className="h-5 w-5 text-primary-foreground" />}
-        />
+      </div>
+
+      {/* Chart */}
+      <div className="card-elevated p-4 lg:p-6">
+        <VoucherChart vouchers={vouchers} />
       </div>
 
       <div className="card-elevated p-4 lg:p-6">
@@ -97,10 +110,11 @@ export function AdminDashboard() {
                 <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground hidden sm:table-cell">Motorista</th>
                 <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Local</th>
                 <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Status</th>
+                <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {vouchers.slice(0, 5).map((voucher) => (
+              {vouchers.slice(0, 10).map((voucher) => (
                 <tr key={voucher.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
                   <td className="py-2 px-3 font-mono text-xs">{voucher.code}</td>
                   <td className="py-2 px-3 font-medium text-sm">{formatCurrency(voucher.value)}</td>
@@ -115,6 +129,34 @@ export function AdminDashboard() {
                     )}>
                       {voucher.status === 'gerado' ? 'Gerado' : voucher.status === 'utilizado' ? 'Usado' : 'Cancelado'}
                     </span>
+                  </td>
+                  <td className="py-2 px-3">
+                    {voucher.status !== 'gerado' && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Excluir vale?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja excluir o vale {voucher.code}? Esta ação não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteVoucher(voucher.id, voucher.code)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                   </td>
                 </tr>
               ))}
