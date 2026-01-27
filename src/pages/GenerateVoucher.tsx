@@ -6,7 +6,9 @@ import { DashboardLayout } from '@/components/Layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { QrCode, Ticket, CheckCircle, Copy, Download, Fuel, AlertCircle, Store, Printer, Receipt } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { QrCode, Ticket, CheckCircle, Copy, Fuel, AlertCircle, Store, Printer, Settings, ListChecks } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import { ThermalReceipt } from '@/components/Voucher/ThermalReceipt';
@@ -21,6 +23,8 @@ export default function GenerateVoucher() {
       navigate('/login');
     }
   }, [authLoading, isAuthenticated, navigate]);
+
+  const [voucherMode, setVoucherMode] = useState<'predefined' | 'custom'>('predefined');
   
   const [formData, setFormData] = useState({
     liters: '',
@@ -28,6 +32,10 @@ export default function GenerateVoucher() {
     driverName: '',
     receiptNumber: '',
   });
+
+  // Custom voucher fields
+  const [customValue, setCustomValue] = useState('');
+  const [customEstablishmentId, setCustomEstablishmentId] = useState('');
   
   const [eligibleType, setEligibleType] = useState<{ 
     id: string; 
@@ -49,18 +57,21 @@ export default function GenerateVoucher() {
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Check eligibility when liters change - auto-fill type and establishment
+  // Check eligibility when liters change - auto-fill type and establishment (only for predefined mode)
   useEffect(() => {
-    const liters = parseFloat(formData.liters);
-    if (!isNaN(liters) && liters > 0) {
-      const eligible = getEligibleVoucherType(liters);
-      setEligibleType(eligible);
-    } else {
-      setEligibleType(null);
+    if (voucherMode === 'predefined') {
+      const liters = parseFloat(formData.liters);
+      if (!isNaN(liters) && liters > 0) {
+        const eligible = getEligibleVoucherType(liters);
+        setEligibleType(eligible);
+      } else {
+        setEligibleType(null);
+      }
     }
-  }, [formData.liters, getEligibleVoucherType]);
+  }, [formData.liters, getEligibleVoucherType, voucherMode]);
 
   const activeTypes = voucherTypes.filter(t => t.active).sort((a, b) => a.minLiters - b.minLiters);
+  const activeEstablishments = establishments.filter(e => e.active);
 
   // Get establishment name for eligible type
   const getEstablishmentName = (establishmentId?: string) => {
@@ -82,30 +93,48 @@ export default function GenerateVoucher() {
       return;
     }
 
-    if (!eligibleType) {
-      toast.error('Litragem insuficiente para gerar vale');
-      return;
-    }
+    if (voucherMode === 'predefined') {
+      if (!eligibleType) {
+        toast.error('Litragem insuficiente para gerar vale');
+        return;
+      }
 
-    if (!eligibleType.establishmentId) {
-      toast.error('Tipo de vale sem estabelecimento definido');
-      return;
+      if (!eligibleType.establishmentId) {
+        toast.error('Tipo de vale sem estabelecimento definido');
+        return;
+      }
+    } else {
+      // Custom mode validations
+      const value = parseFloat(customValue);
+      if (isNaN(value) || value <= 0) {
+        toast.error('Informe um valor válido para o vale');
+        return;
+      }
+
+      if (!customEstablishmentId) {
+        toast.error('Selecione o estabelecimento');
+        return;
+      }
     }
 
     setIsSubmitting(true);
 
+    const isCustom = voucherMode === 'custom';
+    const voucherValue = isCustom ? parseFloat(customValue) : eligibleType!.value;
+    const establishmentId = isCustom ? customEstablishmentId : eligibleType!.establishmentId!;
+
     const voucher = await createVoucher({
-      value: eligibleType.value,
-      voucherTypeId: eligibleType.id,
+      value: voucherValue,
+      voucherTypeId: isCustom ? null : eligibleType!.id,
       vehiclePlate: formData.vehiclePlate.toUpperCase(),
       driverName: formData.driverName,
       liters: parseFloat(formData.liters),
-      establishmentId: eligibleType.establishmentId,
+      establishmentId: establishmentId,
       receiptNumber: formData.receiptNumber,
     });
 
     if (voucher) {
-      const estName = getEstablishmentName(eligibleType.establishmentId);
+      const estName = getEstablishmentName(establishmentId);
       setGeneratedVoucher({
         code: voucher.code,
         value: voucher.value,
@@ -131,51 +160,33 @@ export default function GenerateVoucher() {
     }
   };
 
-  // Generate QR code data with all required info
-  const getQRCodeData = () => {
-    if (!generatedVoucher) return '';
-    return JSON.stringify({
-      code: generatedVoucher.code,
-      value: generatedVoucher.value,
-      driver: generatedVoucher.driverName,
-      establishment: generatedVoucher.establishmentName,
-      receipt: generatedVoucher.receiptNumber || '',
-      date: generatedVoucher.createdAt.toISOString(),
-    });
-  };
-
   // Download thermal receipt PDF (58mm width)
   const downloadThermalPDF = () => {
     if (!generatedVoucher) return;
 
-    // 58mm thermal printer width = approximately 164 points (58mm * 2.83)
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: [58, 120], // 58mm wide, 120mm tall
+      format: [58, 120],
     });
 
-    const centerX = 29; // Center of 58mm
+    const centerX = 29;
     let y = 5;
 
-    // Header
     pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
     pdf.text('VALE-BRINDE', centerX, y, { align: 'center' });
     y += 5;
 
-    // Date
     pdf.setFontSize(8);
     pdf.setFont('helvetica', 'normal');
     pdf.text(new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(generatedVoucher.createdAt), centerX, y, { align: 'center' });
     y += 6;
 
-    // Dashed line
     pdf.setLineDashPattern([1, 1], 0);
     pdf.line(3, y, 55, y);
     y += 5;
 
-    // QR Code - we need to create it as image
     const qrElement = document.getElementById('voucher-qr');
     if (qrElement) {
       const svgData = new XMLSerializer().serializeToString(qrElement);
@@ -189,21 +200,17 @@ export default function GenerateVoucher() {
         ctx?.drawImage(img, 0, 0, 150, 150);
         const pngData = canvas.toDataURL('image/png');
         
-        // Add QR to PDF
         pdf.addImage(pngData, 'PNG', 9, y, 40, 40);
         y += 44;
 
-        // Code
         pdf.setFontSize(10);
         pdf.setFont('helvetica', 'bold');
         pdf.text(generatedVoucher.code, centerX, y, { align: 'center' });
         y += 5;
 
-        // Dashed line
         pdf.line(3, y, 55, y);
         y += 5;
 
-        // Details
         pdf.setFontSize(8);
         pdf.setFont('helvetica', 'normal');
         
@@ -224,11 +231,9 @@ export default function GenerateVoucher() {
         pdf.text(`Caixa: ${generatedVoucher.cashierName}`, 3, y);
         y += 5;
 
-        // Dashed line
         pdf.line(3, y, 55, y);
         y += 4;
 
-        // Establishment
         pdf.setFontSize(7);
         pdf.text('Válido somente em:', centerX, y, { align: 'center' });
         y += 4;
@@ -237,7 +242,6 @@ export default function GenerateVoucher() {
         pdf.text(generatedVoucher.establishmentName, centerX, y, { align: 'center' });
         y += 6;
 
-        // Footer message
         pdf.line(3, y, 55, y);
         y += 4;
         pdf.setFontSize(6);
@@ -259,12 +263,25 @@ export default function GenerateVoucher() {
       driverName: '',
       receiptNumber: '',
     });
+    setCustomValue('');
+    setCustomEstablishmentId('');
     setGeneratedVoucher(null);
     setEligibleType(null);
   };
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+  const isFormValid = () => {
+    const baseValid = formData.liters && formData.vehiclePlate && formData.driverName && formData.receiptNumber.trim();
+    
+    if (voucherMode === 'predefined') {
+      return baseValid && eligibleType && eligibleType.establishmentId;
+    } else {
+      const value = parseFloat(customValue);
+      return baseValid && !isNaN(value) && value > 0 && customEstablishmentId;
+    }
+  };
 
   if (loading || authLoading) {
     return (
@@ -292,40 +309,91 @@ export default function GenerateVoucher() {
           </div>
         </div>
 
-        {/* Liters Tiers Info */}
-        {activeTypes.length > 0 && (
-          <div className="card-elevated p-4 sm:p-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Fuel className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-foreground">Faixas de Litragem</h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-              {activeTypes.map((type) => (
-                <div 
-                  key={type.id} 
-                  className={`p-3 rounded-lg border-2 transition-all ${
-                    eligibleType?.id === type.id 
-                      ? 'border-primary bg-primary/10' 
-                      : 'border-border bg-secondary/30'
-                  }`}
-                >
-                  <p className="text-xs sm:text-sm text-muted-foreground">A partir de {type.minLiters}L</p>
-                  <p className="font-bold text-foreground text-sm sm:text-base">{type.name}</p>
-                  <p className="text-primary font-semibold text-sm">{formatCurrency(type.value)}</p>
-                  <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                    <Store className="h-3 w-3" />
-                    <span>{getEstablishmentName(type.establishmentId)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className="grid lg:grid-cols-2 gap-6 sm:gap-8">
           {/* Form */}
           <div className="card-elevated p-4 sm:p-6">
-            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+            <Tabs value={voucherMode} onValueChange={(v) => setVoucherMode(v as 'predefined' | 'custom')} className="mb-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="predefined" className="gap-2">
+                  <ListChecks className="h-4 w-4" />
+                  Pré-definido
+                </TabsTrigger>
+                <TabsTrigger value="custom" className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  Personalizado
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="predefined" className="mt-4 space-y-4">
+                {activeTypes.length > 0 && (
+                  <div className="p-3 rounded-lg bg-secondary/30 border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Fuel className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium text-foreground">Faixas de Litragem</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {activeTypes.map((type) => (
+                        <div 
+                          key={type.id} 
+                          className={`p-2 rounded-md border transition-all text-xs ${
+                            eligibleType?.id === type.id 
+                              ? 'border-primary bg-primary/10' 
+                              : 'border-border bg-background'
+                          }`}
+                        >
+                          <p className="text-muted-foreground">A partir de {type.minLiters}L</p>
+                          <p className="font-semibold text-foreground">{type.name} - {formatCurrency(type.value)}</p>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Store className="h-3 w-3" />
+                            <span>{getEstablishmentName(type.establishmentId)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="custom" className="mt-4 space-y-4">
+                <div className="p-3 rounded-lg bg-secondary/30 border border-border">
+                  <p className="text-sm text-muted-foreground">
+                    Informe manualmente o valor do vale e selecione o estabelecimento onde ele poderá ser utilizado.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="customValue">Valor do Vale (R$)</Label>
+                  <Input
+                    id="customValue"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Ex: 25.00"
+                    value={customValue}
+                    onChange={(e) => setCustomValue(e.target.value)}
+                    className="h-11 sm:h-12"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="customEstablishment">Estabelecimento</Label>
+                  <Select value={customEstablishmentId} onValueChange={setCustomEstablishmentId}>
+                    <SelectTrigger className="h-11 sm:h-12">
+                      <SelectValue placeholder="Selecione o estabelecimento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeEstablishments.map((est) => (
+                        <SelectItem key={est.id} value={est.id}>
+                          {est.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="liters">Litragem Abastecida</Label>
                 <Input
@@ -338,13 +406,13 @@ export default function GenerateVoucher() {
                   onChange={(e) => setFormData({ ...formData, liters: e.target.value })}
                   className="h-11 sm:h-12"
                 />
-                {formData.liters && !eligibleType && (
+                {voucherMode === 'predefined' && formData.liters && !eligibleType && (
                   <div className="flex items-center gap-2 text-warning text-sm">
                     <AlertCircle className="h-4 w-4" />
                     <span>Litragem insuficiente para gerar vale</span>
                   </div>
                 )}
-                {eligibleType && (
+                {voucherMode === 'predefined' && eligibleType && (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-success text-sm">
                       <CheckCircle className="h-4 w-4" />
@@ -397,7 +465,7 @@ export default function GenerateVoucher() {
                 type="submit" 
                 variant="gradient" 
                 className="w-full h-11 sm:h-12"
-                disabled={!eligibleType || !eligibleType.establishmentId || isSubmitting}
+                disabled={!isFormValid() || isSubmitting}
               >
                 {isSubmitting ? (
                   <div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
@@ -468,6 +536,12 @@ export default function GenerateVoucher() {
                   <QrCode className="h-10 w-10 sm:h-12 sm:w-12" />
                 </div>
                 <p className="text-sm sm:text-base">O QR Code aparecerá aqui</p>
+                <p className="text-xs sm:text-sm">
+                  {voucherMode === 'predefined' 
+                    ? 'Preencha a litragem para ver o vale elegível'
+                    : 'Preencha o valor e selecione o estabelecimento'
+                  }
+                </p>
               </div>
             )}
           </div>
