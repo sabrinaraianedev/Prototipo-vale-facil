@@ -63,7 +63,7 @@ interface VoucherContextType {
 
 const VoucherContext = createContext<VoucherContextType | undefined>(undefined);
 
-export function VoucherProvider({ children }: { children: ReactNode }) {
+export function VoucherProvider({ children }: { children: ReactNode }): JSX.Element {
   const { user, isAuthenticated } = useAuth();
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [voucherTypes, setVoucherTypes] = useState<VoucherTypeConfig[]>([]);
