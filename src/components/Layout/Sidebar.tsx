@@ -97,9 +97,9 @@ export function Sidebar() {
         "lg:translate-x-0",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="p-6 border-b border-sidebar-border">
+        <div className="flex flex-col h-full pt-14 lg:pt-0">
+          {/* Logo - hidden on mobile since it's in the header */}
+          <div className="p-6 border-b border-sidebar-border hidden lg:block">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow">
                 <Ticket className="h-5 w-5 text-primary-foreground" />
