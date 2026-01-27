@@ -31,7 +31,7 @@ export const DashboardLayout = forwardRef<HTMLDivElement, DashboardLayoutProps>(
     return (
       <div ref={ref} className="min-h-screen bg-background">
         <Sidebar />
-        <main className="lg:pl-72 min-h-screen">
+        <main className="lg:pl-72 min-h-screen pt-14 lg:pt-0">
           <div className="p-4 lg:p-8">
             {children}
           </div>
