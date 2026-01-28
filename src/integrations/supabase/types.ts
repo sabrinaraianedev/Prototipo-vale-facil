@@ -40,6 +40,7 @@ export type Database = {
           active: boolean
           created_at: string
           email: string
+          establishment_id: string | null
           id: string
           name: string
           updated_at: string
@@ -48,6 +49,7 @@ export type Database = {
           active?: boolean
           created_at?: string
           email: string
+          establishment_id?: string | null
           id: string
           name: string
           updated_at?: string
@@ -56,11 +58,20 @@ export type Database = {
           active?: boolean
           created_at?: string
           email?: string
+          establishment_id?: string | null
           id?: string
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -193,6 +204,7 @@ export type Database = {
     }
     Functions: {
       generate_voucher_code: { Args: never; Returns: string }
+      get_user_establishment: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
