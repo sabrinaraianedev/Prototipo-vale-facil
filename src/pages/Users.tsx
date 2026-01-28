@@ -18,12 +18,20 @@ interface UserProfile {
   email: string;
   active: boolean;
   role?: string;
+  establishment_id?: string;
+  establishment_name?: string;
+}
+
+interface Establishment {
+  id: string;
+  name: string;
 }
 
 export default function Users() {
   const { user, loading: authLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,6 +40,7 @@ export default function Users() {
     email: '',
     password: '',
     role: '',
+    establishment_id: '',
   });
 
   useEffect(() => {
@@ -43,8 +52,24 @@ export default function Users() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchUsers();
+      fetchEstablishments();
     }
   }, [isAuthenticated]);
+
+  const fetchEstablishments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('establishments')
+        .select('id, name')
+        .eq('active', true)
+        .order('name');
+
+      if (error) throw error;
+      setEstablishments(data || []);
+    } catch (error) {
+      console.error('Error fetching establishments:', error);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -63,7 +88,13 @@ export default function Users() {
 
       if (rolesError) throw rolesError;
 
+      // Fetch establishments for mapping
+      const { data: establishmentData } = await supabase
+        .from('establishments')
+        .select('id, name');
+
       const roleMap = new Map(roles?.map(r => [r.user_id, r.role]) || []);
+      const establishmentMap = new Map(establishmentData?.map(e => [e.id, e.name]) || []);
 
       setUsers((profiles || []).map(p => ({
         id: p.id,
@@ -71,6 +102,8 @@ export default function Users() {
         email: p.email,
         active: p.active,
         role: roleMap.get(p.id),
+        establishment_id: (p as any).establishment_id,
+        establishment_name: (p as any).establishment_id ? establishmentMap.get((p as any).establishment_id) : undefined,
       })));
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -85,6 +118,11 @@ export default function Users() {
     
     if (!formData.name || !formData.email || !formData.password || !formData.role) {
       toast.error('Preencha todos os campos');
+      return;
+    }
+
+    if (formData.role === 'estabelecimento' && !formData.establishment_id) {
+      toast.error('Selecione o estabelecimento para este usuário');
       return;
     }
 
@@ -111,6 +149,7 @@ export default function Users() {
             password: formData.password,
             name: formData.name,
             role: formData.role,
+            establishment_id: formData.role === 'estabelecimento' ? formData.establishment_id : null,
           }),
         }
       );
@@ -122,7 +161,7 @@ export default function Users() {
       }
 
       toast.success('Usuário criado com sucesso!');
-      setFormData({ name: '', email: '', password: '', role: '' });
+      setFormData({ name: '', email: '', password: '', role: '', establishment_id: '' });
       setIsDialogOpen(false);
       fetchUsers();
     } catch (error: any) {
@@ -258,7 +297,7 @@ export default function Users() {
                   <Label>Perfil</Label>
                   <Select
                     value={formData.role}
-                    onValueChange={(value) => setFormData({ ...formData, role: value })}
+                    onValueChange={(value) => setFormData({ ...formData, role: value, establishment_id: '' })}
                   >
                     <SelectTrigger className="h-11">
                       <SelectValue placeholder="Selecione o perfil" />
@@ -270,6 +309,24 @@ export default function Users() {
                     </SelectContent>
                   </Select>
                 </div>
+                {formData.role === 'estabelecimento' && (
+                  <div className="space-y-2">
+                    <Label>Estabelecimento</Label>
+                    <Select
+                      value={formData.establishment_id}
+                      onValueChange={(value) => setFormData({ ...formData, establishment_id: value })}
+                    >
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Selecione o estabelecimento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {establishments.map((est) => (
+                          <SelectItem key={est.id} value={est.id}>{est.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <Button type="button" variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
                     Cancelar
@@ -298,9 +355,14 @@ export default function Users() {
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-border">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    {getRoleIcon(userItem.role)}
-                    <span className="text-xs sm:text-sm">{getRoleLabel(userItem.role)}</span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      {getRoleIcon(userItem.role)}
+                      <span className="text-xs sm:text-sm">{getRoleLabel(userItem.role)}</span>
+                    </div>
+                    {userItem.establishment_name && (
+                      <span className="text-xs text-muted-foreground/70 ml-6">{userItem.establishment_name}</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-xs px-2 py-1 rounded-full ${userItem.active ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'}`}>

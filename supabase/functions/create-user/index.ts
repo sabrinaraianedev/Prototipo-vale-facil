@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { email, password, name, role } = await req.json()
+    const { email, password, name, role, establishment_id } = await req.json()
 
     if (!email || !password || !name || !role) {
       return new Response(
@@ -70,6 +70,14 @@ Deno.serve(async (req) => {
     if (!['admin', 'caixa', 'estabelecimento'].includes(role)) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid role. Must be: admin, caixa, or estabelecimento' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate establishment_id is provided for estabelecimento role
+    if (role === 'estabelecimento' && !establishment_id) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'establishment_id is required for estabelecimento role' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -91,14 +99,15 @@ Deno.serve(async (req) => {
 
     const userId = authData.user.id
 
-    // Create profile
+    // Create profile with establishment_id if applicable
     const { error: profileError } = await adminClient
       .from('profiles')
       .upsert({
         id: userId,
         name,
         email,
-        active: true
+        active: true,
+        establishment_id: role === 'estabelecimento' ? establishment_id : null
       }, { onConflict: 'id' })
 
     if (profileError) {
