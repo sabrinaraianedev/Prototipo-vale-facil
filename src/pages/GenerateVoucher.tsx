@@ -12,6 +12,7 @@ import { QrCode, Ticket, CheckCircle, Copy, Fuel, AlertCircle, Store, Printer, S
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import { ThermalReceipt } from '@/components/Voucher/ThermalReceipt';
+import { validateBrazilianPlate, formatPlateInput } from '@/lib/validators';
 
 export default function GenerateVoucher() {
   const { user, loading: authLoading, isAuthenticated } = useAuth();
@@ -32,6 +33,7 @@ export default function GenerateVoucher() {
     driverName: '',
     receiptNumber: '',
   });
+  const [plateError, setPlateError] = useState<string | null>(null);
 
   // Custom voucher fields
   const [customValue, setCustomValue] = useState('');
@@ -85,6 +87,13 @@ export default function GenerateVoucher() {
     
     if (!user || !formData.liters || !formData.vehiclePlate || !formData.driverName) {
       toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    // Validate plate format
+    const plateValidation = validateBrazilianPlate(formData.vehiclePlate);
+    if (!plateValidation.valid) {
+      toast.error('Placa inválida. Use o formato ABC-1234 ou ABC1D23 (Mercosul)');
       return;
     }
 
@@ -274,12 +283,13 @@ export default function GenerateVoucher() {
 
   const isFormValid = () => {
     const baseValid = formData.liters && formData.vehiclePlate && formData.driverName && formData.receiptNumber.trim();
+    const plateValid = validateBrazilianPlate(formData.vehiclePlate).valid;
     
     if (voucherMode === 'predefined') {
-      return baseValid && eligibleType && eligibleType.establishmentId;
+      return baseValid && plateValid && eligibleType && eligibleType.establishmentId;
     } else {
       const value = parseFloat(customValue);
-      return baseValid && !isNaN(value) && value > 0 && customEstablishmentId;
+      return baseValid && plateValid && !isNaN(value) && value > 0 && customEstablishmentId;
     }
   };
 
@@ -441,12 +451,27 @@ export default function GenerateVoucher() {
                 <Label htmlFor="vehiclePlate">Placa do Veículo</Label>
                 <Input
                   id="vehiclePlate"
-                  placeholder="Ex: ABC-1234"
+                  placeholder="Ex: ABC-1234 ou ABC1D23"
                   value={formData.vehiclePlate}
-                  onChange={(e) => setFormData({ ...formData, vehiclePlate: e.target.value.toUpperCase() })}
-                  className="h-11 sm:h-12 uppercase"
+                  onChange={(e) => {
+                    const formatted = formatPlateInput(e.target.value);
+                    setFormData({ ...formData, vehiclePlate: formatted });
+                    if (formatted.length >= 7) {
+                      const validation = validateBrazilianPlate(formatted);
+                      setPlateError(validation.valid ? null : 'Formato inválido. Use ABC-1234 ou ABC1D23');
+                    } else {
+                      setPlateError(null);
+                    }
+                  }}
+                  className={`h-11 sm:h-12 uppercase ${plateError ? 'border-destructive' : ''}`}
                   maxLength={8}
                 />
+                {plateError && (
+                  <div className="flex items-center gap-2 text-destructive text-sm">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{plateError}</span>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
