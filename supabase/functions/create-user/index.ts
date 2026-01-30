@@ -1,25 +1,21 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const getAllowedOrigins = () => {
-  const origins = [
-    'https://vale-facil-rewards.lovable.app',
-    'https://id-preview--52a224ec-c62a-4bce-ace6-bc7dbcca9707.lovable.app',
-  ];
-  const envOrigin = Deno.env.get('FRONTEND_URL');
-  if (envOrigin) origins.push(envOrigin);
-  return origins;
-};
-
 const getCorsHeaders = (req: Request) => {
   const origin = req.headers.get('origin') || '';
-  const allowedOrigins = getAllowedOrigins();
-  const isAllowed = allowedOrigins.some(allowed => origin.startsWith(allowed.replace(/\/$/, '')));
+  
+  // Allow all Lovable preview and production domains
+  const isAllowed = 
+    origin.includes('.lovable.app') || 
+    origin.includes('.lovableproject.com') ||
+    origin.includes('localhost');
   
   return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : allowedOrigins[0],
+    'Access-Control-Allow-Origin': isAllowed ? origin : 'https://vale-facil-rewards.lovable.app',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
 };
+
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
