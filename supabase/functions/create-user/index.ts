@@ -71,11 +71,37 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { email, password, name, role, establishment_id } = await req.json()
+    const body = await req.json()
+    const { email, password, name, role, establishment_id } = body
 
     if (!email || !password || !name || !role) {
       return new Response(
         JSON.stringify({ success: false, error: 'Missing required fields: email, password, name, role' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (typeof email !== 'string' || !emailRegex.test(email) || email.length > 255) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid email format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate name
+    if (typeof name !== 'string' || name.trim().length < 1 || name.length > 255) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Name must be between 1 and 255 characters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate password strength
+    if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Password must be between 8 and 128 characters' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -94,6 +120,22 @@ Deno.serve(async (req) => {
         JSON.stringify({ success: false, error: 'establishment_id is required for estabelecimento role' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    }
+
+    // Verify establishment exists if provided
+    if (establishment_id) {
+      const { data: estab } = await adminClient
+        .from('establishments')
+        .select('id')
+        .eq('id', establishment_id)
+        .single()
+
+      if (!estab) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Invalid establishment_id' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     // Create user in auth.users
