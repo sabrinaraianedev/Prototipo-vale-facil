@@ -64,9 +64,10 @@ Deno.serve(async (req) => {
     }
 
     const { email } = await req.json()
-    if (!email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!email || typeof email !== 'string' || !emailRegex.test(email) || email.length > 255) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Email is required' }),
+        JSON.stringify({ success: false, error: 'Valid email is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
