@@ -7,6 +7,7 @@ import {
   Ticket, 
   QrCode, 
   Store, 
+  FileText,
   LogOut, 
   Menu, 
   X,
