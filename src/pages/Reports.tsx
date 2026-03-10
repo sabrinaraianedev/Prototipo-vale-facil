@@ -24,9 +24,8 @@ export default function Reports() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(startOfMonth(new Date()));
   const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
 
-  if (!user || user.role !== 'admin') return <Navigate to="/dashboard" replace />;
-
   const filteredVouchers = useMemo(() => {
+    if (!user || user.role !== 'admin') return [];
     let start: Date;
     let end: Date = endOfDay(new Date());
 
