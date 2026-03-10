@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { DashboardLayout } from '@/components/Layout/DashboardLayout';
-import { useVouchers, Voucher } from '@/contexts/VoucherContext';
+import { useVouchers } from '@/contexts/VoucherContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
