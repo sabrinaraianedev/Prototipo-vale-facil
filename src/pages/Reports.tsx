@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { DashboardLayout } from '@/components/Layout/DashboardLayout';
-import { useVouchers, Voucher } from '@/contexts/VoucherContext';
+import { useVouchers } from '@/contexts/VoucherContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, isWithinInterv
 import { ptBR } from 'date-fns/locale';
 import { CalendarIcon, FileText, Download, Ticket, DollarSign, CheckCircle, Clock } from 'lucide-react';
 import { StatCard } from '@/components/Stats/StatCard';
-import jsPDF from 'jspdf';
+
 import { toast } from 'sonner';
 
 type QuickFilter = 'today' | 'week' | 'month' | 'custom';
@@ -100,7 +100,8 @@ export default function Reports() {
     }
   };
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
+    const { default: jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     let y = 20;

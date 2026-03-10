@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,7 +12,7 @@ import GenerateVoucher from "./pages/GenerateVoucher";
 import RedeemVoucher from "./pages/RedeemVoucher";
 import Users from "./pages/Users";
 import VoucherTypes from "./pages/VoucherTypes";
-import Reports from "./pages/Reports";
+const Reports = lazy(() => import("./pages/Reports"));
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,7 +33,7 @@ const App = () => (
               <Route path="/redeem-voucher" element={<RedeemVoucher />} />
               <Route path="/users" element={<Users />} />
               <Route path="/voucher-types" element={<VoucherTypes />} />
-              <Route path="/reports" element={<Reports />} />
+              <Route path="/reports" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>}><Reports /></Suspense>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
