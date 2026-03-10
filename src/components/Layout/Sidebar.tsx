@@ -7,6 +7,7 @@ import {
   Ticket, 
   QrCode, 
   Store, 
+  FileText,
   LogOut, 
   Menu, 
   X,
@@ -26,6 +27,7 @@ const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['admin', 'caixa', 'estabelecimento'] },
   { icon: Users, label: 'Usuários', path: '/users', roles: ['admin'] },
   { icon: Ticket, label: 'Tipos de Vale', path: '/voucher-types', roles: ['admin'] },
+  { icon: FileText, label: 'Relatórios', path: '/reports', roles: ['admin'] },
   { icon: QrCode, label: 'Gerar Vale', path: '/generate-voucher', roles: ['caixa'] },
   { icon: Store, label: 'Resgatar Vale', path: '/redeem-voucher', roles: ['estabelecimento'] },
 ];

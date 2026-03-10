@@ -11,6 +11,7 @@ import GenerateVoucher from "./pages/GenerateVoucher";
 import RedeemVoucher from "./pages/RedeemVoucher";
 import Users from "./pages/Users";
 import VoucherTypes from "./pages/VoucherTypes";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
               <Route path="/redeem-voucher" element={<RedeemVoucher />} />
               <Route path="/users" element={<Users />} />
               <Route path="/voucher-types" element={<VoucherTypes />} />
+              <Route path="/reports" element={<Reports />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
