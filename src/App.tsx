@@ -11,6 +11,7 @@ import GenerateVoucher from "./pages/GenerateVoucher";
 import RedeemVoucher from "./pages/RedeemVoucher";
 import Users from "./pages/Users";
 import VoucherTypes from "./pages/VoucherTypes";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
