@@ -12,7 +12,7 @@ import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, isWithinInterv
 import { ptBR } from 'date-fns/locale';
 import { CalendarIcon, FileText, Download, Ticket, DollarSign, CheckCircle, Clock } from 'lucide-react';
 import { StatCard } from '@/components/Stats/StatCard';
-import jsPDF from 'jspdf';
+
 import { toast } from 'sonner';
 
 type QuickFilter = 'today' | 'week' | 'month' | 'custom';
