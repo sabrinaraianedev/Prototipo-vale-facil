@@ -32,6 +32,7 @@ const App = () => (
               <Route path="/redeem-voucher" element={<RedeemVoucher />} />
               <Route path="/users" element={<Users />} />
               <Route path="/voucher-types" element={<VoucherTypes />} />
+              <Route path="/reports" element={<Reports />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
