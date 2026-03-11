@@ -103,94 +103,286 @@ export default function Reports() {
   const exportPDF = async () => {
     const { default: jsPDF } = await import('jspdf');
     const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    let y = 20;
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    const ml = 20; // margin left
+    const mr = 20; // margin right
+    const cw = pw - ml - mr; // content width
+    let y = 0;
+    let pageNum = 1;
 
-    const addLine = (text: string, size = 10, bold = false) => {
-      if (y > 270) { doc.addPage(); y = 20; }
-      doc.setFontSize(size);
-      doc.setFont('helvetica', bold ? 'bold' : 'normal');
-      doc.text(text, 14, y);
-      y += size * 0.5 + 3;
+    const GREEN = [56, 118, 29] as const;   // #38761D
+    const DARK_GREEN = [39, 78, 19] as const;
+    const ORANGE = [218, 165, 32] as const;  // #DAA520
+    const GRAY_BG = [245, 245, 245] as const;
+    const WHITE = [255, 255, 255] as const;
+    const BLACK = [0, 0, 0] as const;
+    const GRAY_TEXT = [100, 100, 100] as const;
+    const BORDER = [200, 200, 200] as const;
+
+    const checkPage = (needed: number) => {
+      if (y + needed > ph - 30) {
+        addFooter();
+        doc.addPage();
+        pageNum++;
+        y = 20;
+      }
     };
 
-    const addSeparator = () => {
-      doc.setDrawColor(200);
-      doc.line(14, y, pageWidth - 14, y);
+    const addFooter = () => {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...GRAY_TEXT);
+      const totalPages = '{totalPages}';
+      doc.text('Sistema ValeFácil – Relatório gerado automaticamente', pw / 2, ph - 18, { align: 'center' });
+      doc.text(`Data de geração: ${format(new Date(), 'dd/MM/yyyy')}`, pw / 2, ph - 13, { align: 'center' });
+      doc.text(`Página ${pageNum} de ${totalPages}`, pw / 2, ph - 8, { align: 'center' });
+    };
+
+    const drawFilledRect = (x: number, yPos: number, w: number, h: number, color: readonly [number, number, number]) => {
+      doc.setFillColor(...color);
+      doc.rect(x, yPos, w, h, 'F');
+    };
+
+    const drawTable = (headers: string[], rows: string[][], colWidths: number[]) => {
+      const rowH = 8;
+      const headerH = 9;
+      checkPage(headerH + rowH * Math.min(rows.length, 3) + 5);
+
+      // Header
+      drawFilledRect(ml, y, cw, headerH, GREEN);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bolditalic');
+      doc.setTextColor(...WHITE);
+      let xPos = ml + 3;
+      headers.forEach((h, i) => {
+        doc.text(h, xPos, y + 6);
+        xPos += colWidths[i];
+      });
+      y += headerH;
+
+      // Rows
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...BLACK);
+      rows.forEach((row, ri) => {
+        checkPage(rowH + 2);
+        if (ri % 2 === 0) {
+          drawFilledRect(ml, y, cw, rowH, GRAY_BG);
+        }
+        doc.setDrawColor(...BORDER);
+        doc.line(ml, y + rowH, ml + cw, y + rowH);
+        xPos = ml + 3;
+        doc.setFontSize(8);
+        row.forEach((cell, ci) => {
+          doc.text(cell.substring(0, 30), xPos, y + 5.5);
+          xPos += colWidths[ci];
+        });
+        y += rowH;
+      });
       y += 5;
     };
 
-    // Header
-    addLine('ValeFácil — Relatório de Vales-Brinde', 16, true);
-    addLine(`Período: ${getFilterLabel()}`, 10);
-    addLine(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 9);
+    // ===== HEADER =====
+    y = 25;
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...DARK_GREEN);
+    doc.text('VALEFÁCIL', pw / 2, y, { align: 'center' });
     y += 5;
-    addSeparator();
+    doc.setDrawColor(...GREEN);
+    doc.setLineWidth(0.8);
+    doc.line(pw / 2 - 35, y, pw / 2 + 35, y);
+    y += 7;
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...GRAY_TEXT);
+    doc.text('RELATÓRIO DE VALES-BRINDE', pw / 2, y, { align: 'center' });
+    y += 12;
 
-    // Summary
-    addLine('RESUMO GERAL', 12, true);
-    addLine(`Total de Vales: ${stats.total}`);
-    addLine(`Vales Utilizados: ${stats.used}`);
-    addLine(`Vales Pendentes: ${stats.pending}`);
-    addLine(`Valor Total Distribuído: ${formatCurrency(stats.totalValue)}`);
-    addLine(`Valor Total Resgatado: ${formatCurrency(stats.redeemedValue)}`);
-    y += 3;
-    addSeparator();
+    // ===== PERIOD INFO =====
+    doc.setFontSize(10);
+    doc.setTextColor(...BLACK);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Período: ', ml, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(getFilterLabel(), ml + doc.getTextWidth('Período: '), y);
+    y += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Gerado em: ', ml, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }), ml + doc.getTextWidth('Gerado em: '), y);
+    y += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Administrador: ', ml, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Sistema ValeFácil', ml + doc.getTextWidth('Administrador: '), y);
+    y += 10;
 
-    // By Cashier
-    addLine('DETALHAMENTO POR CAIXA', 12, true);
-    if (byCashier.length === 0) {
-      addLine('Nenhum dado no período.');
-    } else {
-      byCashier.forEach(c => {
-        addLine(`${c.name}: ${c.count} vales | Distribuído: ${formatCurrency(c.value)} | Resgatado: ${formatCurrency(c.redeemed)}`);
-      });
-    }
-    y += 3;
-    addSeparator();
-
-    // By Establishment
-    addLine('DETALHAMENTO POR ESTABELECIMENTO', 12, true);
-    if (byEstablishment.length === 0) {
-      addLine('Nenhum dado no período.');
-    } else {
-      byEstablishment.forEach(e => {
-        addLine(`${e.name}: ${e.count} vales | Distribuído: ${formatCurrency(e.value)} | Resgatado: ${formatCurrency(e.redeemed)}`);
-      });
-    }
-    y += 3;
-    addSeparator();
-
-    // Voucher listing
-    addLine('LISTAGEM DE VALES', 12, true);
-    y += 2;
-
-    // Table header
+    // ===== FILTROS APLICADOS =====
+    drawFilledRect(ml, y, 45, 7, GREEN);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    doc.text('Código', 14, y);
-    doc.text('Valor', 45, y);
-    doc.text('Motorista', 70, y);
-    doc.text('Local', 115, y);
-    doc.text('Status', 160, y);
-    doc.text('Data', 180, y);
-    y += 5;
-    doc.setDrawColor(150);
-    doc.line(14, y - 2, pageWidth - 14, y - 2);
-
+    doc.setTextColor(...WHITE);
+    doc.text('FILTROS APLICADOS', ml + 3, y + 5);
+    y += 12;
+    doc.setFontSize(9);
+    doc.setTextColor(...BLACK);
     doc.setFont('helvetica', 'normal');
-    filteredVouchers.forEach(v => {
-      if (y > 275) { doc.addPage(); y = 20; }
-      doc.setFontSize(7);
-      doc.text(v.code, 14, y);
-      doc.text(formatCurrency(v.value), 45, y);
-      doc.text((v.driverName || '').substring(0, 20), 70, y);
-      doc.text((v.establishmentName || '').substring(0, 20), 115, y);
-      const statusLabel = v.status === 'gerado' ? 'Gerado' : v.status === 'utilizado' ? 'Usado' : 'Cancelado';
-      doc.text(statusLabel, 160, y);
-      doc.text(format(v.createdAt, 'dd/MM/yy'), 180, y);
-      y += 4;
+    const filterLines = [
+      `• Período: ${getFilterLabel()}`,
+      '• Caixa: Todos',
+      '• Estabelecimento: Todos',
+      '• Status: Todos',
+    ];
+    filterLines.forEach(line => {
+      doc.text(line, ml + 3, y);
+      y += 5;
     });
+    y += 8;
+
+    // ===== RESUMO GERAL =====
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...DARK_GREEN);
+    doc.text('RESUMO GERAL', ml, y);
+    y += 6;
+
+    const availableValue = stats.totalValue - stats.redeemedValue;
+    const boxW = cw / 3 - 2;
+    const boxH = 22;
+
+    // Row 1: counts with colored headers
+    const countBoxes = [
+      { label: 'Total de Vales', value: String(stats.total), color: GREEN },
+      { label: 'Vales Utilizados', value: String(stats.used), color: GREEN },
+      { label: 'Vales Pendentes', value: String(stats.pending), color: ORANGE },
+    ];
+    countBoxes.forEach((box, i) => {
+      const bx = ml + i * (boxW + 3);
+      drawFilledRect(bx, y, boxW, 7, box.color as unknown as readonly [number, number, number]);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...WHITE);
+      doc.text(box.label, bx + boxW / 2, y + 5, { align: 'center' });
+      // Value area
+      doc.setDrawColor(...BORDER);
+      doc.rect(bx, y + 7, boxW, boxH - 7);
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...BLACK);
+      doc.text(box.value, bx + boxW / 2, y + 18, { align: 'center' });
+    });
+    y += boxH + 4;
+
+    // Row 2: values
+    const valueBoxes = [
+      { label: 'Valor Distribuído', value: formatCurrency(stats.totalValue) },
+      { label: 'Valor Resgatado', value: formatCurrency(stats.redeemedValue) },
+      { label: 'Valor Disponível', value: formatCurrency(availableValue) },
+    ];
+    valueBoxes.forEach((box, i) => {
+      const bx = ml + i * (boxW + 3);
+      doc.setDrawColor(...BORDER);
+      doc.rect(bx, y, boxW, 7);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bolditalic');
+      doc.setTextColor(...BLACK);
+      doc.text(box.label, bx + boxW / 2, y + 5, { align: 'center' });
+      doc.rect(bx, y + 7, boxW, boxH - 7);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(box.value, bx + boxW / 2, y + 17, { align: 'center' });
+    });
+    y += boxH + 8;
+
+    // ===== DETALHAMENTO POR CAIXA =====
+    checkPage(30);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...DARK_GREEN);
+    doc.text('DETALHAMENTO POR CAIXA', ml, y);
+    y += 6;
+
+    if (byCashier.length > 0) {
+      const cashierCols = [cw * 0.3, cw * 0.2, cw * 0.25, cw * 0.25];
+      drawTable(
+        ['Caixa', 'Qtd. de Vales', 'Valor Distribuído', 'Valor Usado'],
+        byCashier.map(c => [c.name, String(c.count), formatCurrency(c.value), formatCurrency(c.redeemed)]),
+        cashierCols
+      );
+    } else {
+      doc.setFontSize(9);
+      doc.setTextColor(...GRAY_TEXT);
+      doc.text('Nenhum dado no período.', ml, y);
+      y += 8;
+    }
+
+    // ===== DETALHAMENTO POR ESTABELECIMENTO =====
+    checkPage(30);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...DARK_GREEN);
+    doc.text('DETALHAMENTO POR ESTABELECIMENTO', ml, y);
+    y += 6;
+
+    if (byEstablishment.length > 0) {
+      const estCols = [cw * 0.3, cw * 0.2, cw * 0.25, cw * 0.25];
+      drawTable(
+        ['Estabelecimento', 'Qtd. de Vales', 'Valor Distribuído', 'Valor Usado'],
+        byEstablishment.map(e => [e.name, String(e.count), formatCurrency(e.value), formatCurrency(e.redeemed)]),
+        estCols
+      );
+    } else {
+      doc.setFontSize(9);
+      doc.setTextColor(...GRAY_TEXT);
+      doc.text('Nenhum dado no período.', ml, y);
+      y += 8;
+    }
+
+    // ===== LISTAGEM COMPLETA DE VALES =====
+    checkPage(30);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...DARK_GREEN);
+    doc.text('LISTAGEM COMPLETA DE VALES', ml, y);
+    y += 6;
+
+    if (filteredVouchers.length > 0) {
+      const listCols = [cw * 0.2, cw * 0.15, cw * 0.2, cw * 0.25, cw * 0.2];
+      drawTable(
+        ['Código', 'Valor', 'Motorista', 'Estabelecimento', 'Status'],
+        filteredVouchers.map(v => {
+          const statusLabel = v.status === 'gerado' ? 'Pendente' : v.status === 'utilizado' ? 'Utilizado' : 'Cancelado';
+          return [v.code, formatCurrency(v.value), v.driverName || '', v.establishmentName || '', statusLabel];
+        }),
+        listCols
+      );
+    } else {
+      doc.setFontSize(9);
+      doc.setTextColor(...GRAY_TEXT);
+      doc.text('Nenhum vale no período.', ml, y);
+      y += 8;
+    }
+
+    // Add footer to last page
+    addFooter();
+
+    // Replace page number placeholders
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      // Re-draw footer with correct total
+      const footerY = ph - 8;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...GRAY_TEXT);
+      // White rect to clear placeholder
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, ph - 22, pw, 22, 'F');
+      doc.text('Sistema ValeFácil – Relatório gerado automaticamente', pw / 2, ph - 18, { align: 'center' });
+      doc.text(`Data de geração: ${format(new Date(), 'dd/MM/yyyy')}`, pw / 2, ph - 13, { align: 'center' });
+      doc.text(`Página ${i} de ${totalPages}`, pw / 2, ph - 8, { align: 'center' });
+    }
 
     doc.save(`relatorio-vales-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     toast.success('Relatório exportado com sucesso!');
