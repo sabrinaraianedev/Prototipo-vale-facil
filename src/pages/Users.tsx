@@ -304,6 +304,26 @@ export default function Users() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="cpf">CPF (opcional)</Label>
+                  <Input
+                    id="cpf"
+                    placeholder="000.000.000-00"
+                    value={formData.cpf}
+                    onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cargo">Cargo / Função (opcional)</Label>
+                  <Input
+                    id="cargo"
+                    placeholder="Ex: Gerente, Caixa, Motorista"
+                    value={formData.cargo}
+                    onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="password">Senha</Label>
                   <Input
                     id="password"
