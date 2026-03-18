@@ -165,6 +165,8 @@ export default function Users() {
             email: formData.email,
             password: formData.password,
             name: formData.name,
+            cpf: formData.cpf.trim() || null,
+            cargo: formData.cargo.trim() || null,
             role: formData.role,
             establishment_id: establishmentId,
           }),
