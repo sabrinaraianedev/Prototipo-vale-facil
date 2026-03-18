@@ -395,7 +395,7 @@ export default function Users() {
                     <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{userItem.name}</h3>
                     <p className="text-xs sm:text-sm text-muted-foreground truncate">{userItem.email}</p>
                     {userItem.cpf && <p className="text-xs text-muted-foreground/70">CPF: {userItem.cpf}</p>}
-                    {userItem.cargo && <p className="text-xs text-muted-foreground/70">Cargo: {userItem.cargo}</p>}
+                    {userItem.cargo && <p className="text-xs text-muted-foreground/70">Empresa: {userItem.cargo}</p>}
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-border">
