@@ -102,6 +102,8 @@ export default function Users() {
         id: p.id,
         name: p.name,
         email: p.email,
+        cpf: p.cpf,
+        cargo: p.cargo,
         active: p.active,
         role: roleMap.get(p.id),
         establishment_id: p.establishment_id || undefined,
