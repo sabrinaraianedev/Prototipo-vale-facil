@@ -8,6 +8,7 @@ import {
   QrCode, 
   Store, 
   FileText,
+  Crown,
   LogOut, 
   Menu, 
   X,
