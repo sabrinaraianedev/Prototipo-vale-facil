@@ -20,20 +20,67 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          plano: Database["public"]["Enums"]["plano_tipo"]
+          status: string
         }
         Insert: {
           active?: boolean
           created_at?: string
           id?: string
           name: string
+          plano?: Database["public"]["Enums"]["plano_tipo"]
+          status?: string
         }
         Update: {
           active?: boolean
           created_at?: string
           id?: string
           name?: string
+          plano?: Database["public"]["Enums"]["plano_tipo"]
+          status?: string
         }
         Relationships: []
+      }
+      funcionarios: {
+        Row: {
+          active: boolean
+          cpf: string | null
+          created_at: string
+          establishment_id: string
+          id: string
+          nome: string
+          setor: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          cpf?: string | null
+          created_at?: string
+          establishment_id: string
+          id?: string
+          nome: string
+          setor?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          cpf?: string | null
+          created_at?: string
+          establishment_id?: string
+          id?: string
+          nome?: string
+          setor?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funcionarios_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -216,9 +263,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      user_in_same_establishment: {
+        Args: { _target_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "caixa" | "estabelecimento" | "super_admin"
+      plano_tipo: "basico" | "pro" | "enterprise"
       voucher_status: "gerado" | "utilizado" | "cancelado"
     }
     CompositeTypes: {
@@ -348,6 +400,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "caixa", "estabelecimento", "super_admin"],
+      plano_tipo: ["basico", "pro", "enterprise"],
       voucher_status: ["gerado", "utilizado", "cancelado"],
     },
   },
