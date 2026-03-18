@@ -235,7 +235,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "caixa" | "estabelecimento" | "super_admin"
-      plano_tipo: "basico" | "pro" | "enterprise"
+      plano_tipo: "basico" | "pro" | "enterprise" | "free"
       voucher_status: "gerado" | "utilizado" | "cancelado"
     }
     CompositeTypes: {
@@ -365,7 +365,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "caixa", "estabelecimento", "super_admin"],
-      plano_tipo: ["basico", "pro", "enterprise"],
+      plano_tipo: ["basico", "pro", "enterprise", "free"],
       voucher_status: ["gerado", "utilizado", "cancelado"],
     },
   },
