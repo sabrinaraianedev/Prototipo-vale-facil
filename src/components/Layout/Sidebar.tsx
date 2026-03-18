@@ -8,7 +8,6 @@ import {
   QrCode, 
   Store, 
   FileText,
-  UserCheck,
   LogOut, 
   Menu, 
   X,
@@ -27,7 +26,6 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['super_admin', 'admin', 'caixa', 'estabelecimento'] },
   { icon: Users, label: 'Usuários', path: '/users', roles: ['super_admin', 'admin'] },
-  { icon: UserCheck, label: 'Funcionários', path: '/employees', roles: ['super_admin', 'admin'] },
   { icon: Ticket, label: 'Tipos de Vale', path: '/voucher-types', roles: ['super_admin', 'admin'] },
   { icon: FileText, label: 'Relatórios', path: '/reports', roles: ['super_admin', 'admin'] },
   { icon: QrCode, label: 'Gerar Vale', path: '/generate-voucher', roles: ['caixa'] },

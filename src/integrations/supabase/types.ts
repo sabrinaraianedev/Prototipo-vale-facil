@@ -41,50 +41,11 @@ export type Database = {
         }
         Relationships: []
       }
-      funcionarios: {
-        Row: {
-          active: boolean
-          cpf: string | null
-          created_at: string
-          establishment_id: string
-          id: string
-          nome: string
-          setor: string | null
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          cpf?: string | null
-          created_at?: string
-          establishment_id: string
-          id?: string
-          nome: string
-          setor?: string | null
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          cpf?: string | null
-          created_at?: string
-          establishment_id?: string
-          id?: string
-          nome?: string
-          setor?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "funcionarios_establishment_id_fkey"
-            columns: ["establishment_id"]
-            isOneToOne: false
-            referencedRelation: "establishments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           active: boolean
+          cargo: string | null
+          cpf: string | null
           created_at: string
           email: string
           establishment_id: string | null
@@ -94,6 +55,8 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          cargo?: string | null
+          cpf?: string | null
           created_at?: string
           email: string
           establishment_id?: string | null
@@ -103,6 +66,8 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          cargo?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string
           establishment_id?: string | null

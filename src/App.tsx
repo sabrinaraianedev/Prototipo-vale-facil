@@ -12,7 +12,6 @@ import GenerateVoucher from "./pages/GenerateVoucher";
 import RedeemVoucher from "./pages/RedeemVoucher";
 import Users from "./pages/Users";
 import VoucherTypes from "./pages/VoucherTypes";
-import Employees from "./pages/Employees";
 const Reports = lazy(() => import("./pages/Reports"));
 import NotFound from "./pages/NotFound";
 
@@ -40,7 +39,7 @@ const App = () => (
               <Route path="/redeem-voucher" element={<RedeemVoucher />} />
               <Route path="/users" element={<Users />} />
               <Route path="/voucher-types" element={<VoucherTypes />} />
-              <Route path="/employees" element={<Employees />} />
+              
               <Route path="/reports" element={<Suspense fallback={<LoadingSpinner />}><Reports /></Suspense>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

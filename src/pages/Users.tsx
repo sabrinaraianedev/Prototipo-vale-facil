@@ -16,6 +16,8 @@ interface UserProfile {
   id: string;
   name: string;
   email: string;
+  cpf: string | null;
+  cargo: string | null;
   active: boolean;
   role?: string;
   establishment_id?: string;
@@ -39,6 +41,8 @@ export default function Users() {
     name: '',
     email: '',
     password: '',
+    cpf: '',
+    cargo: '',
     role: '',
     establishment_id: '',
   });
@@ -98,6 +102,8 @@ export default function Users() {
         id: p.id,
         name: p.name,
         email: p.email,
+        cpf: p.cpf,
+        cargo: p.cargo,
         active: p.active,
         role: roleMap.get(p.id),
         establishment_id: p.establishment_id || undefined,
@@ -159,6 +165,8 @@ export default function Users() {
             email: formData.email,
             password: formData.password,
             name: formData.name,
+            cpf: formData.cpf.trim() || null,
+            cargo: formData.cargo.trim() || null,
             role: formData.role,
             establishment_id: establishmentId,
           }),
@@ -172,7 +180,7 @@ export default function Users() {
       }
 
       toast.success('Usuário criado com sucesso!');
-      setFormData({ name: '', email: '', password: '', role: '', establishment_id: '' });
+      setFormData({ name: '', email: '', password: '', cpf: '', cargo: '', role: '', establishment_id: '' });
       setIsDialogOpen(false);
       fetchUsers();
     } catch (error: any) {
@@ -296,6 +304,26 @@ export default function Users() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="cpf">CPF (opcional)</Label>
+                  <Input
+                    id="cpf"
+                    placeholder="000.000.000-00"
+                    value={formData.cpf}
+                    onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cargo">Cargo / Função (opcional)</Label>
+                  <Input
+                    id="cargo"
+                    placeholder="Ex: Gerente, Caixa, Motorista"
+                    value={formData.cargo}
+                    onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="password">Senha</Label>
                   <Input
                     id="password"
@@ -366,6 +394,8 @@ export default function Users() {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{userItem.name}</h3>
                     <p className="text-xs sm:text-sm text-muted-foreground truncate">{userItem.email}</p>
+                    {userItem.cpf && <p className="text-xs text-muted-foreground/70">CPF: {userItem.cpf}</p>}
+                    {userItem.cargo && <p className="text-xs text-muted-foreground/70">Cargo: {userItem.cargo}</p>}
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-border">
