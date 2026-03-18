@@ -314,10 +314,10 @@ export default function Users() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cargo">Cargo / Função (opcional)</Label>
+                  <Label htmlFor="cargo">Empresa (opcional)</Label>
                   <Input
                     id="cargo"
-                    placeholder="Ex: Gerente, Caixa, Motorista"
+                    placeholder="Ex: Transportadora ABC"
                     value={formData.cargo}
                     onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
                     className="h-11"
@@ -395,7 +395,7 @@ export default function Users() {
                     <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{userItem.name}</h3>
                     <p className="text-xs sm:text-sm text-muted-foreground truncate">{userItem.email}</p>
                     {userItem.cpf && <p className="text-xs text-muted-foreground/70">CPF: {userItem.cpf}</p>}
-                    {userItem.cargo && <p className="text-xs text-muted-foreground/70">Cargo: {userItem.cargo}</p>}
+                    {userItem.cargo && <p className="text-xs text-muted-foreground/70">Empresa: {userItem.cargo}</p>}
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-border">
