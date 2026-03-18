@@ -198,6 +198,8 @@ Deno.serve(async (req) => {
         id: userId,
         name,
         email,
+        cpf: cpf || null,
+        cargo: cargo || null,
         active: true,
         establishment_id: finalEstablishmentId
       }, { onConflict: 'id' })
