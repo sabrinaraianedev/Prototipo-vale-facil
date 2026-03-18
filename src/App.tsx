@@ -12,7 +12,6 @@ import GenerateVoucher from "./pages/GenerateVoucher";
 import RedeemVoucher from "./pages/RedeemVoucher";
 import Users from "./pages/Users";
 import VoucherTypes from "./pages/VoucherTypes";
-import Employees from "./pages/Employees";
 const Reports = lazy(() => import("./pages/Reports"));
 import NotFound from "./pages/NotFound";
 
