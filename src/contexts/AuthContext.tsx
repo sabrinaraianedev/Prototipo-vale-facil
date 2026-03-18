@@ -2,13 +2,14 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
-export type UserRole = 'admin' | 'caixa' | 'estabelecimento';
+export type UserRole = 'super_admin' | 'admin' | 'caixa' | 'estabelecimento';
 
 export interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  establishmentId: string | null;
 }
 
 interface AuthContextType {
@@ -29,10 +30,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserData = async (supabaseUser: SupabaseUser): Promise<boolean> => {
     try {
-      // Get user profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('name, email')
+        .select('name, email, establishment_id')
         .eq('id', supabaseUser.id)
         .maybeSingle();
 
@@ -41,7 +41,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Get user role
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
@@ -59,10 +58,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: profile.email,
           name: profile.name,
           role: roleData.role as UserRole,
+          establishmentId: profile.establishment_id,
         });
         return true;
       } else {
-        // User exists in auth but no profile/role yet
         console.warn('User has no profile or role yet');
         setUser(null);
         return false;
@@ -79,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        // Check for existing session first
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!mounted) return;
@@ -99,7 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initializeAuth();
 
-    // Set up auth state listener for future changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
@@ -107,7 +104,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         
         if (session?.user) {
-          // Use setTimeout to avoid deadlocks
           setTimeout(async () => {
             if (mounted) {
               await fetchUserData(session.user);

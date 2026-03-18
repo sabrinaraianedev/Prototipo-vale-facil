@@ -85,7 +85,7 @@ export default function Reports() {
     return Object.values(map).sort((a, b) => b.value - a.value);
   }, [filteredVouchers]);
 
-  if (!user || user.role !== 'admin') return <Navigate to="/dashboard" replace />;
+  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) return <Navigate to="/dashboard" replace />;
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);

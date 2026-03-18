@@ -8,6 +8,7 @@ import {
   QrCode, 
   Store, 
   FileText,
+  UserCheck,
   LogOut, 
   Menu, 
   X,
@@ -24,10 +25,11 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['admin', 'caixa', 'estabelecimento'] },
-  { icon: Users, label: 'Usuários', path: '/users', roles: ['admin'] },
-  { icon: Ticket, label: 'Tipos de Vale', path: '/voucher-types', roles: ['admin'] },
-  { icon: FileText, label: 'Relatórios', path: '/reports', roles: ['admin'] },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['super_admin', 'admin', 'caixa', 'estabelecimento'] },
+  { icon: Users, label: 'Usuários', path: '/users', roles: ['super_admin', 'admin'] },
+  { icon: UserCheck, label: 'Funcionários', path: '/employees', roles: ['super_admin', 'admin'] },
+  { icon: Ticket, label: 'Tipos de Vale', path: '/voucher-types', roles: ['super_admin', 'admin'] },
+  { icon: FileText, label: 'Relatórios', path: '/reports', roles: ['super_admin', 'admin'] },
   { icon: QrCode, label: 'Gerar Vale', path: '/generate-voucher', roles: ['caixa'] },
   { icon: Store, label: 'Resgatar Vale', path: '/redeem-voucher', roles: ['estabelecimento'] },
 ];
@@ -48,7 +50,8 @@ export function Sidebar() {
   };
 
   const getRoleLabel = (role: UserRole) => {
-    const labels = {
+    const labels: Record<UserRole, string> = {
+      super_admin: 'Super Admin',
       admin: 'Administrador',
       caixa: 'Caixa',
       estabelecimento: 'Estabelecimento'
@@ -57,7 +60,8 @@ export function Sidebar() {
   };
 
   const getRoleColor = (role: UserRole) => {
-    const colors = {
+    const colors: Record<UserRole, string> = {
+      super_admin: 'bg-destructive/20 text-destructive',
       admin: 'bg-primary/20 text-primary',
       caixa: 'bg-warning/20 text-warning',
       estabelecimento: 'bg-accent/20 text-accent'
@@ -100,7 +104,7 @@ export function Sidebar() {
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex flex-col h-full pt-14 lg:pt-0">
-          {/* Logo - hidden on mobile since it's in the header */}
+          {/* Logo */}
           <div className="p-6 border-b border-sidebar-border hidden lg:block">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow">

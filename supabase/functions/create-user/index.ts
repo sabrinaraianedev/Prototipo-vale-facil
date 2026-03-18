@@ -2,8 +2,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const getCorsHeaders = (req: Request) => {
   const origin = req.headers.get('origin') || '';
-  
-  // Allow all Lovable preview and production domains
   const isAllowed = 
     origin.includes('.lovable.app') || 
     origin.includes('.lovableproject.com') ||
@@ -16,7 +14,6 @@ const getCorsHeaders = (req: Request) => {
   };
 };
 
-
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
@@ -28,7 +25,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     
-    // Get the authorization header from the request
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
@@ -37,12 +33,10 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Create a client with the user's token to verify they're an admin
     const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } }
     })
 
-    // Get current user
     const { data: { user: currentUser }, error: userError } = await userClient.auth.getUser()
     if (userError || !currentUser) {
       return new Response(
@@ -51,26 +45,46 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Create admin client to check role
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     })
 
-    // Check if user is admin
+    // Check caller's role
     const { data: roleData, error: roleError } = await adminClient
       .from('user_roles')
       .select('role')
       .eq('user_id', currentUser.id)
       .single()
 
-    if (roleError || roleData?.role !== 'admin') {
+    if (roleError || !roleData) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Could not determine caller role' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const callerRole = roleData.role;
+    const isSuperAdmin = callerRole === 'super_admin';
+    const isAdmin = callerRole === 'admin';
+
+    if (!isSuperAdmin && !isAdmin) {
       return new Response(
         JSON.stringify({ success: false, error: 'Only admins can create users' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Parse request body
+    // Get caller's establishment
+    let callerEstablishmentId: string | null = null;
+    if (isAdmin) {
+      const { data: callerProfile } = await adminClient
+        .from('profiles')
+        .select('establishment_id')
+        .eq('id', currentUser.id)
+        .single()
+      callerEstablishmentId = callerProfile?.establishment_id || null;
+    }
+
     const body = await req.json()
     const { email, password, name, role, establishment_id } = body
 
@@ -81,7 +95,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Validate email format
+    // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (typeof email !== 'string' || !emailRegex.test(email) || email.length > 255) {
       return new Response(
@@ -98,7 +112,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Validate password strength
+    // Validate password
     if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
       return new Response(
         JSON.stringify({ success: false, error: 'Password must be between 8 and 128 characters' }),
@@ -107,27 +121,49 @@ Deno.serve(async (req) => {
     }
 
     // Validate role
-    if (!['admin', 'caixa', 'estabelecimento'].includes(role)) {
+    const validRoles = isSuperAdmin 
+      ? ['super_admin', 'admin', 'caixa', 'estabelecimento']
+      : ['admin', 'caixa', 'estabelecimento'];
+    
+    if (!validRoles.includes(role)) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Invalid role. Must be: admin, caixa, or estabelecimento' }),
+        JSON.stringify({ success: false, error: `Invalid role. Must be: ${validRoles.join(', ')}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Validate establishment_id is provided for estabelecimento role
-    if (role === 'estabelecimento' && !establishment_id) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'establishment_id is required for estabelecimento role' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    // Determine establishment_id for new user
+    let finalEstablishmentId: string | null = null;
+    
+    if (role === 'super_admin') {
+      // Super admins don't belong to any establishment
+      finalEstablishmentId = null;
+    } else if (isSuperAdmin) {
+      // Super admin creating user: must provide establishment
+      if (!establishment_id) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'establishment_id is required for this role' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      finalEstablishmentId = establishment_id;
+    } else {
+      // Admin creating user: always uses their own establishment
+      finalEstablishmentId = callerEstablishmentId;
+      if (!finalEstablishmentId) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Admin user has no establishment assigned' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     // Verify establishment exists if provided
-    if (establishment_id) {
+    if (finalEstablishmentId) {
       const { data: estab } = await adminClient
         .from('establishments')
         .select('id')
-        .eq('id', establishment_id)
+        .eq('id', finalEstablishmentId)
         .single()
 
       if (!estab) {
@@ -138,7 +174,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Create user in auth.users
+    // Create user
     const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -155,7 +191,7 @@ Deno.serve(async (req) => {
 
     const userId = authData.user.id
 
-    // Create profile with establishment_id if applicable
+    // Create profile
     const { error: profileError } = await adminClient
       .from('profiles')
       .upsert({
@@ -163,7 +199,7 @@ Deno.serve(async (req) => {
         name,
         email,
         active: true,
-        establishment_id: role === 'estabelecimento' ? establishment_id : null
+        establishment_id: finalEstablishmentId
       }, { onConflict: 'id' })
 
     if (profileError) {
@@ -189,12 +225,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        user: { 
-          id: userId, 
-          email, 
-          name, 
-          role 
-        } 
+        user: { id: userId, email, name, role } 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
