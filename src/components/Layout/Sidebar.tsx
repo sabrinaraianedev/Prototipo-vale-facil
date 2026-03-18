@@ -29,6 +29,7 @@ const menuItems: MenuItem[] = [
   { icon: Users, label: 'Usuários', path: '/users', roles: ['super_admin', 'admin'] },
   { icon: Ticket, label: 'Tipos de Vale', path: '/voucher-types', roles: ['super_admin', 'admin'] },
   { icon: FileText, label: 'Relatórios', path: '/reports', roles: ['super_admin', 'admin'] },
+  { icon: Crown, label: 'Planos', path: '/planos', roles: ['super_admin', 'admin'] },
   { icon: QrCode, label: 'Gerar Vale', path: '/generate-voucher', roles: ['caixa'] },
   { icon: Store, label: 'Resgatar Vale', path: '/redeem-voucher', roles: ['estabelecimento'] },
 ];
