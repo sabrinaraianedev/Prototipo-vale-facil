@@ -180,7 +180,7 @@ export default function Users() {
       }
 
       toast.success('Usuário criado com sucesso!');
-      setFormData({ name: '', email: '', password: '', role: '', establishment_id: '' });
+      setFormData({ name: '', email: '', password: '', cpf: '', cargo: '', role: '', establishment_id: '' });
       setIsDialogOpen(false);
       fetchUsers();
     } catch (error: any) {
