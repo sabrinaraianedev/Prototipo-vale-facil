@@ -314,10 +314,10 @@ export default function Users() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cargo">Cargo / Função (opcional)</Label>
+                  <Label htmlFor="cargo">Empresa (opcional)</Label>
                   <Input
                     id="cargo"
-                    placeholder="Ex: Gerente, Caixa, Motorista"
+                    placeholder="Ex: Transportadora ABC"
                     value={formData.cargo}
                     onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
                     className="h-11"
