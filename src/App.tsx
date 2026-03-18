@@ -6,12 +6,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { VoucherProvider } from "./contexts/VoucherContext";
+import Landing from "./pages/Landing";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import GenerateVoucher from "./pages/GenerateVoucher";
 import RedeemVoucher from "./pages/RedeemVoucher";
 import Users from "./pages/Users";
 import VoucherTypes from "./pages/VoucherTypes";
+import Plans from "./pages/Plans";
 const Reports = lazy(() => import("./pages/Reports"));
 import NotFound from "./pages/NotFound";
 
@@ -32,14 +35,15 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/generate-voucher" element={<GenerateVoucher />} />
               <Route path="/redeem-voucher" element={<RedeemVoucher />} />
               <Route path="/users" element={<Users />} />
               <Route path="/voucher-types" element={<VoucherTypes />} />
-              
+              <Route path="/planos" element={<Plans />} />
               <Route path="/reports" element={<Suspense fallback={<LoadingSpinner />}><Reports /></Suspense>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
