@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Users as UsersIcon, Plus, UserCircle, Shield, Store, CreditCard, Trash2 } from 'lucide-react';
+import { Users as UsersIcon, Plus, UserCircle, Shield, Store, CreditCard, Trash2, Crown } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -43,6 +43,8 @@ export default function Users() {
     establishment_id: '',
   });
 
+  const isSuperAdmin = user?.role === 'super_admin';
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       navigate('/login');
@@ -61,7 +63,6 @@ export default function Users() {
       const { data, error } = await supabase
         .from('establishments')
         .select('id, name')
-        .eq('active', true)
         .order('name');
 
       if (error) throw error;
@@ -73,7 +74,6 @@ export default function Users() {
 
   const fetchUsers = async () => {
     try {
-      // Fetch profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -81,14 +81,12 @@ export default function Users() {
 
       if (profilesError) throw profilesError;
 
-      // Fetch roles
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
 
       if (rolesError) throw rolesError;
 
-      // Fetch establishments for mapping
       const { data: establishmentData } = await supabase
         .from('establishments')
         .select('id, name');
@@ -102,8 +100,8 @@ export default function Users() {
         email: p.email,
         active: p.active,
         role: roleMap.get(p.id),
-        establishment_id: (p as any).establishment_id,
-        establishment_name: (p as any).establishment_id ? establishmentMap.get((p as any).establishment_id) : undefined,
+        establishment_id: p.establishment_id || undefined,
+        establishment_name: p.establishment_id ? establishmentMap.get(p.establishment_id) : undefined,
       })));
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -111,6 +109,10 @@ export default function Users() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const needsEstablishment = (role: string) => {
+    return ['admin', 'caixa', 'estabelecimento'].includes(role);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -121,9 +123,13 @@ export default function Users() {
       return;
     }
 
-    if (formData.role === 'estabelecimento' && !formData.establishment_id) {
-      toast.error('Selecione o estabelecimento para este usuário');
-      return;
+    if (needsEstablishment(formData.role)) {
+      // For admin users, auto-set establishment from their own profile
+      const estId = isSuperAdmin ? formData.establishment_id : user?.establishmentId;
+      if (!estId) {
+        toast.error('Selecione a empresa para este usuário');
+        return;
+      }
     }
 
     if (formData.password.length < 6) {
@@ -136,6 +142,11 @@ export default function Users() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
+      // For admin (non-super), always use their own establishment
+      const establishmentId = isSuperAdmin 
+        ? (needsEstablishment(formData.role) ? formData.establishment_id : null)
+        : user?.establishmentId || null;
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
         {
@@ -149,7 +160,7 @@ export default function Users() {
             password: formData.password,
             name: formData.name,
             role: formData.role,
-            establishment_id: formData.role === 'estabelecimento' ? formData.establishment_id : null,
+            establishment_id: establishmentId,
           }),
         }
       );
@@ -174,6 +185,8 @@ export default function Users() {
 
   const getRoleIcon = (role?: string) => {
     switch (role) {
+      case 'super_admin':
+        return <Crown className="h-4 w-4" />;
       case 'admin':
         return <Shield className="h-4 w-4" />;
       case 'caixa':
@@ -187,6 +200,8 @@ export default function Users() {
 
   const getRoleLabel = (role?: string) => {
     switch (role) {
+      case 'super_admin':
+        return 'Super Admin';
       case 'admin':
         return 'Administrador';
       case 'caixa':
@@ -200,13 +215,11 @@ export default function Users() {
 
   const handleDeleteUser = async (userId: string, userName: string) => {
     try {
-      // Delete from user_roles first
       await supabase
         .from('user_roles')
         .delete()
         .eq('user_id', userId);
 
-      // Delete from profiles
       const { error } = await supabase
         .from('profiles')
         .delete()
@@ -303,21 +316,22 @@ export default function Users() {
                       <SelectValue placeholder="Selecione o perfil" />
                     </SelectTrigger>
                     <SelectContent>
+                      {isSuperAdmin && <SelectItem value="super_admin">Super Admin</SelectItem>}
                       <SelectItem value="admin">Administrador</SelectItem>
                       <SelectItem value="caixa">Caixa</SelectItem>
                       <SelectItem value="estabelecimento">Estabelecimento</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                {formData.role === 'estabelecimento' && (
+                {isSuperAdmin && needsEstablishment(formData.role) && (
                   <div className="space-y-2">
-                    <Label>Estabelecimento</Label>
+                    <Label>Empresa</Label>
                     <Select
                       value={formData.establishment_id}
                       onValueChange={(value) => setFormData({ ...formData, establishment_id: value })}
                     >
                       <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Selecione o estabelecimento" />
+                        <SelectValue placeholder="Selecione a empresa" />
                       </SelectTrigger>
                       <SelectContent>
                         {establishments.map((est) => (

@@ -33,7 +33,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Verify caller is admin
     const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } }
     })
@@ -56,7 +55,7 @@ Deno.serve(async (req) => {
       .eq('user_id', currentUser.id)
       .single()
 
-    if (roleData?.role !== 'admin') {
+    if (!roleData || (roleData.role !== 'admin' && roleData.role !== 'super_admin')) {
       return new Response(
         JSON.stringify({ success: false, error: 'Only admins can delete users' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -72,7 +71,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Find user by email in auth.users
     const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers()
     if (listError) throw listError
 
@@ -84,7 +82,28 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Delete from auth
+    // If caller is admin (not super_admin), verify target user is in same establishment
+    if (roleData.role === 'admin') {
+      const { data: callerProfile } = await adminClient
+        .from('profiles')
+        .select('establishment_id')
+        .eq('id', currentUser.id)
+        .single()
+
+      const { data: targetProfile } = await adminClient
+        .from('profiles')
+        .select('establishment_id')
+        .eq('id', userToDelete.id)
+        .single()
+
+      if (!callerProfile?.establishment_id || callerProfile.establishment_id !== targetProfile?.establishment_id) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Cannot delete users from other companies' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(userToDelete.id)
     if (deleteError) throw deleteError
 

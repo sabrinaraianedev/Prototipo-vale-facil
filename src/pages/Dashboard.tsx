@@ -32,7 +32,7 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      {user.role === 'admin' && <AdminDashboard />}
+      {(user.role === 'admin' || user.role === 'super_admin') && <AdminDashboard />}
       {user.role === 'caixa' && <CashierDashboard />}
       {user.role === 'estabelecimento' && <EstablishmentDashboard />}
     </DashboardLayout>
