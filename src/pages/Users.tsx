@@ -16,6 +16,8 @@ interface UserProfile {
   id: string;
   name: string;
   email: string;
+  cpf: string | null;
+  cargo: string | null;
   active: boolean;
   role?: string;
   establishment_id?: string;
