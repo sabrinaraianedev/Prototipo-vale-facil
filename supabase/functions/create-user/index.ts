@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json()
-    const { email, password, name, role, establishment_id } = body
+    const { email, password, name, role, establishment_id, cpf, cargo } = body
 
     if (!email || !password || !name || !role) {
       return new Response(
