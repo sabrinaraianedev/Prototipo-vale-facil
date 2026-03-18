@@ -41,6 +41,8 @@ export default function Users() {
     name: '',
     email: '',
     password: '',
+    cpf: '',
+    cargo: '',
     role: '',
     establishment_id: '',
   });
