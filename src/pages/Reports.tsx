@@ -25,7 +25,7 @@ export default function Reports() {
   const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
 
   const filteredVouchers = useMemo(() => {
-    if (!user || user.role !== 'admin') return [];
+    if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) return [];
     let start: Date;
     let end: Date = endOfDay(new Date());
 
