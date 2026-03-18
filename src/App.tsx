@@ -39,7 +39,7 @@ const App = () => (
               <Route path="/redeem-voucher" element={<RedeemVoucher />} />
               <Route path="/users" element={<Users />} />
               <Route path="/voucher-types" element={<VoucherTypes />} />
-              <Route path="/employees" element={<Employees />} />
+              
               <Route path="/reports" element={<Suspense fallback={<LoadingSpinner />}><Reports /></Suspense>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
