@@ -6,6 +6,27 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+const normalizeEmail = (value: string) => value.trim().toLowerCase()
+
+const findAuthUserByEmail = async (
+  adminClient: ReturnType<typeof createClient>,
+  email: string,
+) => {
+  let page = 1
+
+  while (true) {
+    const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 })
+
+    if (error) throw error
+
+    const matchedUser = data.users.find((user) => normalizeEmail(user.email ?? '') === email)
+    if (matchedUser) return matchedUser
+
+    if (!data.nextPage || data.users.length === 0) return null
+    page = data.nextPage
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -55,6 +76,8 @@ Deno.serve(async (req) => {
 
     const body = await req.json()
     const { name, email, password } = body
+    const normalizedEmail = typeof email === 'string' ? normalizeEmail(email) : ''
+    const trimmedName = typeof name === 'string' ? name.trim() : ''
 
     // Validate inputs
     if (!name || !email || !password) {
@@ -65,14 +88,14 @@ Deno.serve(async (req) => {
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (typeof email !== 'string' || !emailRegex.test(email) || email.length > 255) {
+    if (!emailRegex.test(normalizedEmail) || normalizedEmail.length > 255) {
       return new Response(
         JSON.stringify({ success: false, error: 'E-mail inválido' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    if (typeof name !== 'string' || name.trim().length < 2 || name.length > 255) {
+    if (trimmedName.length < 2 || trimmedName.length > 255) {
       return new Response(
         JSON.stringify({ success: false, error: 'Nome deve ter entre 2 e 255 caracteres' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -86,18 +109,44 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get admin's establishment to set plano
-    const { data: adminProfile } = await adminClient
-      .from('profiles')
-      .select('establishment_id')
-      .eq('id', currentUser.id)
-      .single()
+    const existingAuthUser = await findAuthUserByEmail(adminClient, normalizedEmail)
+    let authUserId: string | null = null
+    let reusedExistingAuthUser = false
+
+    if (existingAuthUser) {
+      const [{ data: existingProfile, error: profileLookupError }, { data: existingRole, error: roleLookupError }] = await Promise.all([
+        adminClient
+          .from('profiles')
+          .select('id, establishment_id')
+          .eq('id', existingAuthUser.id)
+          .maybeSingle(),
+        adminClient
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', existingAuthUser.id)
+          .limit(1)
+          .maybeSingle(),
+      ])
+
+      if (profileLookupError) throw profileLookupError
+      if (roleLookupError) throw roleLookupError
+
+      if (existingProfile || existingRole) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Já existe um usuário cadastrado com este e-mail' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      authUserId = existingAuthUser.id
+      reusedExistingAuthUser = true
+    }
 
     // 1. Create the establishment
     const { data: establishment, error: estError } = await adminClient
       .from('establishments')
       .insert({
-        name: name.trim(),
+        name: trimmedName,
         active: true,
       })
       .select()
@@ -110,38 +159,64 @@ Deno.serve(async (req) => {
       )
     }
 
-    // 2. Create the auth user
-    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name: name.trim() }
-    })
+    // 2. Create or recover the auth user
+    if (reusedExistingAuthUser && authUserId) {
+      const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(authUserId, {
+        email: normalizedEmail,
+        password,
+        email_confirm: true,
+        user_metadata: { name: trimmedName },
+      })
 
-    if (authError) {
-      // Rollback establishment
-      await adminClient.from('establishments').delete().eq('id', establishment.id)
-      return new Response(
-        JSON.stringify({ success: false, error: authError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      if (authUpdateError) {
+        await adminClient.from('establishments').delete().eq('id', establishment.id)
+        return new Response(
+          JSON.stringify({ success: false, error: authUpdateError.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    } else {
+      const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+        email: normalizedEmail,
+        password,
+        email_confirm: true,
+        user_metadata: { name: trimmedName }
+      })
+
+      if (authError) {
+        await adminClient.from('establishments').delete().eq('id', establishment.id)
+        return new Response(
+          JSON.stringify({ success: false, error: authError.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      authUserId = authData.user.id
     }
 
-    const userId = authData.user.id
+    const userId = authUserId!
 
     // 3. Update profile with establishment
     const { error: profileError } = await adminClient
       .from('profiles')
       .upsert({
         id: userId,
-        name: name.trim(),
-        email,
+        name: trimmedName,
+        email: normalizedEmail,
         active: true,
         establishment_id: establishment.id,
       }, { onConflict: 'id' })
 
     if (profileError) {
-      console.error('Profile error:', profileError)
+      await adminClient.from('establishments').delete().eq('id', establishment.id)
+      if (!reusedExistingAuthUser) {
+        await adminClient.auth.admin.deleteUser(userId)
+      }
+
+      return new Response(
+        JSON.stringify({ success: false, error: 'Erro ao criar perfil do estabelecimento: ' + profileError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // 4. Assign 'estabelecimento' role
@@ -150,14 +225,23 @@ Deno.serve(async (req) => {
       .insert({ user_id: userId, role: 'estabelecimento' })
 
     if (roleError) {
-      console.error('Role error:', roleError)
+      await adminClient.from('profiles').delete().eq('id', userId)
+      await adminClient.from('establishments').delete().eq('id', establishment.id)
+      if (!reusedExistingAuthUser) {
+        await adminClient.auth.admin.deleteUser(userId)
+      }
+
+      return new Response(
+        JSON.stringify({ success: false, error: 'Erro ao vincular acesso do estabelecimento: ' + roleError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         establishment: { id: establishment.id, name: establishment.name },
-        user: { id: userId, email },
+        user: { id: userId, email: normalizedEmail },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
