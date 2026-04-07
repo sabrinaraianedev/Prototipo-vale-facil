@@ -30,8 +30,8 @@ export default function Register() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
+    if (formData.password.length < 8) {
+      toast.error('A senha deve ter pelo menos 8 caracteres');
       return;
     }
 
@@ -57,7 +57,11 @@ export default function Register() {
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.error || 'Erro ao criar conta');
+        const msg = result.error || 'Erro ao criar conta';
+        if (msg.includes('already been registered')) {
+          throw new Error('Este e-mail já está cadastrado. Tente fazer login ou use outro e-mail.');
+        }
+        throw new Error(msg);
       }
 
       // Auto-login after registration
@@ -135,7 +139,7 @@ export default function Register() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Mínimo 8 caracteres"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="h-11 pl-10"
