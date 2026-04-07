@@ -305,6 +305,18 @@ export default function GenerateVoucher() {
 
   if (!user) return null;
 
+  if (!user.establishmentId) {
+    return (
+      <DashboardLayout>
+        <div className="card-elevated p-8 text-center space-y-4">
+          <AlertCircle className="h-12 w-12 text-warning mx-auto" />
+          <h2 className="text-lg font-semibold text-foreground">Sem empresa vinculada</h2>
+          <p className="text-muted-foreground">Seu usuário não está vinculado a nenhuma empresa. Solicite ao administrador que vincule sua conta a uma empresa.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
