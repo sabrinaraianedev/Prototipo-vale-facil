@@ -99,14 +99,11 @@ Deno.serve(async (req) => {
       throw profilesReadError
     }
 
-    if ((linkedProfiles || []).some((profile) => profile.id === currentUser.id)) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Você não pode excluir o estabelecimento da sua própria conta' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // Filter out the current user from profiles to delete — skip their auth account
+    const profilesToDelete = (linkedProfiles || []).filter((profile) => profile.id !== currentUser.id)
 
-    const userIds = (linkedProfiles || []).map((profile) => profile.id)
+    const userIdsToDelete = profilesToDelete.map((profile) => profile.id)
+    const currentUserLinked = (linkedProfiles || []).some((p) => p.id === currentUser.id)
 
     const { error: vouchersError } = await adminClient
       .from('vouchers')
@@ -122,15 +119,15 @@ Deno.serve(async (req) => {
 
     if (voucherTypesError) throw voucherTypesError
 
-    if (userIds.length > 0) {
+    if (userIdsToDelete.length > 0) {
       const { error: userRolesError } = await adminClient
         .from('user_roles')
         .delete()
-        .in('user_id', userIds)
+        .in('user_id', userIdsToDelete)
 
       if (userRolesError) throw userRolesError
 
-      for (const userId of userIds) {
+      for (const userId of userIdsToDelete) {
         const { error: deleteAuthUserError } = await adminClient.auth.admin.deleteUser(userId)
         if (deleteAuthUserError) {
           console.error('Auth delete error:', deleteAuthUserError)
@@ -140,9 +137,17 @@ Deno.serve(async (req) => {
       const { error: profilesDeleteError } = await adminClient
         .from('profiles')
         .delete()
-        .eq('establishment_id', establishmentId)
+        .in('id', userIdsToDelete)
 
       if (profilesDeleteError) throw profilesDeleteError
+    }
+
+    // Unlink current user from this establishment if they were linked
+    if (currentUserLinked) {
+      await adminClient
+        .from('profiles')
+        .update({ establishment_id: null })
+        .eq('id', currentUser.id)
     }
 
     const { error: deleteEstablishmentError } = await adminClient
@@ -156,7 +161,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'Estabelecimento excluído com sucesso',
-        deleted_profile_count: userIds.length,
+        deleted_profile_count: userIdsToDelete.length,
         establishment: { id: establishment.id, name: establishment.name },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
