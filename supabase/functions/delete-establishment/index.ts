@@ -99,12 +99,8 @@ Deno.serve(async (req) => {
       throw profilesReadError
     }
 
-    if ((linkedProfiles || []).some((profile) => profile.id === currentUser.id)) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Você não pode excluir o estabelecimento da sua própria conta' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // Filter out the current user from profiles to delete — skip their auth account
+    const profilesToDelete = (linkedProfiles || []).filter((profile) => profile.id !== currentUser.id)
 
     const userIds = (linkedProfiles || []).map((profile) => profile.id)
 
