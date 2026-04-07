@@ -16,6 +16,7 @@ import Users from "./pages/Users";
 import VoucherTypes from "./pages/VoucherTypes";
 import Plans from "./pages/Plans";
 const Reports = lazy(() => import("./pages/Reports"));
+import Establishments from "./pages/Establishments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="/redeem-voucher" element={<RedeemVoucher />} />
               <Route path="/users" element={<Users />} />
               <Route path="/voucher-types" element={<VoucherTypes />} />
+              <Route path="/establishments" element={<Establishments />} />
               <Route path="/planos" element={<Plans />} />
               <Route path="/reports" element={<Suspense fallback={<LoadingSpinner />}><Reports /></Suspense>} />
               <Route path="*" element={<NotFound />} />

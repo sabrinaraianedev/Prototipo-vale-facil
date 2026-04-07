@@ -6,7 +6,8 @@ import {
   Users, 
   Ticket, 
   QrCode, 
-  Store, 
+  Store,
+  Building2,
   FileText,
   Crown,
   LogOut, 
@@ -27,6 +28,7 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['super_admin', 'admin', 'caixa', 'estabelecimento'] },
   { icon: Users, label: 'Usuários', path: '/users', roles: ['super_admin', 'admin'] },
+  { icon: Building2, label: 'Estabelecimentos', path: '/establishments', roles: ['super_admin', 'admin'] },
   { icon: Ticket, label: 'Tipos de Vale', path: '/voucher-types', roles: ['super_admin', 'admin'] },
   { icon: FileText, label: 'Relatórios', path: '/reports', roles: ['super_admin', 'admin'] },
   { icon: Crown, label: 'Planos', path: '/planos', roles: ['super_admin', 'admin'] },
