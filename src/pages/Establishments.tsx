@@ -148,6 +148,13 @@ export default function Establishments() {
 
   const handleDelete = async (id: string) => {
     try {
+      // Remove vouchers linked to this establishment first
+      await supabase.from('vouchers').delete().eq('establishment_id', id);
+      // Remove voucher types linked to this establishment
+      await supabase.from('voucher_types').delete().eq('establishment_id', id);
+      // Remove profiles linked to this establishment
+      await supabase.from('profiles').update({ establishment_id: null }).eq('establishment_id', id);
+
       const { error } = await supabase
         .from('establishments')
         .delete()
@@ -158,7 +165,7 @@ export default function Establishments() {
       refreshData();
     } catch (error: any) {
       console.error('Error deleting establishment:', error);
-      toast.error('Erro ao excluir. Verifique se não há vales vinculados.');
+      toast.error('Erro ao excluir estabelecimento: ' + (error.message || 'Erro desconhecido'));
     }
   };
 
