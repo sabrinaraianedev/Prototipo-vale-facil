@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Store, Plus, Trash2, Edit, CheckCircle, XCircle } from 'lucide-react';
+import { Store, Plus, Trash2, Edit, CheckCircle, XCircle, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,6 +29,9 @@ export default function Establishments() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formPassword, setFormPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -69,6 +72,7 @@ export default function Establishments() {
     setIsSubmitting(true);
     try {
       if (editingId) {
+        // Edit mode - just update the name
         const { error } = await supabase
           .from('establishments')
           .update({ name: formName.trim() })
@@ -76,14 +80,45 @@ export default function Establishments() {
         if (error) throw error;
         toast.success('Estabelecimento atualizado!');
       } else {
-        const { error } = await supabase
-          .from('establishments')
-          .insert({ name: formName.trim() });
-        if (error) throw error;
-        toast.success('Estabelecimento criado!');
+        // Create mode - requires email and password
+        if (!formEmail.trim()) {
+          toast.error('Informe o e-mail de acesso do estabelecimento');
+          setIsSubmitting(false);
+          return;
+        }
+        if (!formPassword || formPassword.length < 8) {
+          toast.error('A senha deve ter no mínimo 8 caracteres');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+
+        const response = await supabase.functions.invoke('create-establishment-user', {
+          body: {
+            name: formName.trim(),
+            email: formEmail.trim(),
+            password: formPassword,
+          },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.error) {
+          throw new Error(response.error.message || 'Erro ao criar estabelecimento');
+        }
+
+        const result = response.data;
+        if (!result.success) {
+          throw new Error(result.error || 'Erro ao criar estabelecimento');
+        }
+
+        toast.success('Estabelecimento criado com acesso ao sistema!');
       }
-      setFormName('');
-      setEditingId(null);
+
+      resetForm();
       setIsDialogOpen(false);
       fetchEstablishments();
       refreshData();
@@ -130,13 +165,22 @@ export default function Establishments() {
   const openEdit = (est: EstablishmentItem) => {
     setEditingId(est.id);
     setFormName(est.name);
+    setFormEmail('');
+    setFormPassword('');
     setIsDialogOpen(true);
   };
 
   const openCreate = () => {
+    resetForm();
+    setIsDialogOpen(true);
+  };
+
+  const resetForm = () => {
     setEditingId(null);
     setFormName('');
-    setIsDialogOpen(true);
+    setFormEmail('');
+    setFormPassword('');
+    setShowPassword(false);
   };
 
   if (loading || authLoading) {
@@ -165,7 +209,7 @@ export default function Establishments() {
             </div>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
               <Button variant="gradient" className="w-full sm:w-auto" onClick={openCreate}>
                 <Plus className="h-5 w-5" />
@@ -178,7 +222,7 @@ export default function Establishments() {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="estName">Nome</Label>
+                  <Label htmlFor="estName">Nome do Estabelecimento</Label>
                   <Input
                     id="estName"
                     placeholder="Ex: Restaurante Central"
@@ -187,6 +231,53 @@ export default function Establishments() {
                     className="h-11"
                   />
                 </div>
+
+                {!editingId && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="estEmail" className="flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        E-mail de Acesso
+                      </Label>
+                      <Input
+                        id="estEmail"
+                        type="email"
+                        placeholder="Ex: restaurante@email.com"
+                        value={formEmail}
+                        onChange={(e) => setFormEmail(e.target.value)}
+                        className="h-11"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        O estabelecimento usará este e-mail para acessar o sistema e escanear QR Codes.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="estPassword" className="flex items-center gap-2">
+                        <Lock className="h-4 w-4" />
+                        Senha de Acesso
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="estPassword"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Mínimo 8 caracteres"
+                          value={formPassword}
+                          onChange={(e) => setFormPassword(e.target.value)}
+                          className="h-11 pr-10"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <Button type="button" variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
                     Cancelar
